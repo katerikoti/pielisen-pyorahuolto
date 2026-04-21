@@ -10,11 +10,12 @@
   // Create styles
   const style = document.createElement('style');
   style.textContent = `
-    #ketju-toggle{position:fixed;right:1.5rem;bottom:1.5rem;width:56px;height:56px;border-radius:50%;background:${ACCENT};color:#fff;font-size:1.2rem;cursor:pointer;z-index:9999;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 30px rgba(0,0,0,.18);border:1px solid #fff}
+    #ketju-toggle{position:fixed;right:1.5rem;bottom:1.5rem;width:60px;height:60px;border-radius:50%;background:${ACCENT};color:#fff;font-size:1.3rem;cursor:pointer;z-index:9999;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 30px rgba(0,0,0,.18);border:1px solid #fff;padding:0;line-height:0;overflow:visible}
     #ketju-window{position:fixed;right:1.5rem;bottom:6.25rem;width:360px;max-width:calc(100vw - 2rem);background:#fff;border-radius:12px;box-shadow:0 14px 40px rgba(0,0,0,.18);overflow:hidden;font-family:system-ui,Arial,sans-serif;z-index:9998;display:flex;flex-direction:column;border:1px solid #fff}
     #ketju-header{background:${PRIMARY};color:#fff;padding:.7rem 1rem;display:flex;align-items:center;gap:.6rem}
     #ketju-avatar{width:36px;height:36px;border-radius:50%;background:${ACCENT};display:flex;align-items:center;justify-content:center;font-weight:800}
     #ketju-avatar svg{width:20px;height:20px;display:block}
+    #ketju-toggle svg{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:44px;height:44px;display:block}
     #ketju-messages{padding:1rem;max-height:320px;overflow:auto;display:flex;flex-direction:column;gap:.6rem;background:#fafafa}
     .k-msg{display:inline-block;padding:8px 10px;border-radius:12px;max-width:82%;word-break:break-word}
     .k-user{background:${ACCENT};color:#fff;align-self:flex-end}
