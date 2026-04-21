@@ -12,9 +12,9 @@
  */
 
 /* ─── Configuration ─────────────────────────────────────── */
-require_once __DIR__ . '/config.php';
 // Token = PW_HASH from admin.html (SHA-256 of admin password):
 define('TOKEN_HASH', 'a1d182d125869e9e5df6cff0f27f9d194e61793c90183ae0b5b86a0bc87ea4fc');
+define('BOOKINGS_FILE', __DIR__ . '/varaukset.json');
 
 /* ─── Headers ───────────────────────────────────────────── */
 header('Content-Type: application/json; charset=utf-8');
@@ -29,17 +29,13 @@ if (!hash_equals(TOKEN_HASH, $token)) {
     exit;
 }
 
-/* ─── DB connect ────────────────────────────────────────── */
-try {
-    $pdo = new PDO(
-        'mysql:host='.DB_HOST.';dbname='.DB_NAME.';charset=utf8mb4',
-        DB_USER, DB_PASS,
-        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false]
-    );
-} catch (PDOException $e) {
-    http_response_code(500);
-    echo json_encode(['error' => 'db_connect']);
-    exit;
+function readBookings(): array {
+    if (!file_exists(BOOKINGS_FILE)) return [];
+    return json_decode(file_get_contents(BOOKINGS_FILE), true) ?: [];
+}
+
+function writeBookings(array $bookings): void {
+    file_put_contents(BOOKINGS_FILE, json_encode(array_values($bookings), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 }
 
 /* ─── POST: update status ───────────────────────────────── */
@@ -52,34 +48,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         echo json_encode(['error' => 'invalid']);
         exit;
     }
-    try {
-        $pdo->prepare("UPDATE varaukset SET tila=:tila WHERE id=:id")
-            ->execute([':tila' => $tila, ':id' => $id]);
-        echo json_encode(['ok' => true]);
-    } catch (PDOException $e) {
-        http_response_code(500);
-        echo json_encode(['error' => 'db_error']);
+    $bookings = readBookings();
+    foreach ($bookings as &$b) {
+        if ((int)$b['id'] === $id) { $b['tila'] = $tila; break; }
     }
+    writeBookings($bookings);
+    echo json_encode(['ok' => true]);
     exit;
 }
 
 /* ─── GET: fetch bookings ───────────────────────────────── */
-$filter = $_GET['filter'] ?? 'tulevat';
-$where  = match($filter) {
-    'menneet' => "WHERE toivottu_pvm < CURDATE()",
-    'kaikki'  => "",
-    default   => "WHERE toivottu_pvm >= CURDATE() AND tila != 'peruttu'",
-};
+$filter   = $_GET['filter'] ?? 'tulevat';
+$today    = date('Y-m-d');
+$all      = readBookings();
 
-try {
-    $stmt = $pdo->query(
-        "SELECT id, toivottu_pvm, toivottu_aika, tila, nimi, puhelin, email,
-                pyora_tyyppi, palvelu, lisatiedot, luotu
-         FROM varaukset $where
-         ORDER BY toivottu_pvm ASC, toivottu_aika ASC"
-    );
-    echo json_encode(['bookings' => $stmt->fetchAll(PDO::FETCH_ASSOC)], JSON_UNESCAPED_UNICODE);
-} catch (PDOException $e) {
-    http_response_code(500);
-    echo json_encode(['error' => 'db_error']);
-}
+$bookings = array_values(array_filter($all, function($b) use ($filter, $today) {
+    return match($filter) {
+        'menneet' => $b['toivottu_pvm'] < $today,
+        'kaikki'  => true,
+        default   => $b['toivottu_pvm'] >= $today && $b['tila'] !== 'peruttu',
+    };
+}));
+
+usort($bookings, fn($a, $b) => strcmp($a['toivottu_pvm'].$a['toivottu_aika'], $b['toivottu_pvm'].$b['toivottu_aika']));
+
+echo json_encode(['bookings' => $bookings], JSON_UNESCAPED_UNICODE);

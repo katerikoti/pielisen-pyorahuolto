@@ -127,7 +127,8 @@
       const reply = data.reply || 'En pysty vastaamaan juuri nyt. Soita 013 456 7890';
       addMsg(reply,'bot');
       pushHistory('user', text); pushHistory('assistant', reply); saveState();
-      if (/varaa|ajanvaraus|varaus|varaa aika/i.test(text) || /varaa|ajanvaraus|varaus|varaa aika/i.test(reply)){
+      // Only suggest booking button if reply mentions it but doesn't confirm a completed booking
+      if (/varaa|ajanvaraus/i.test(reply) && !/vahvistettu|vastaanotettu|varaus on|olemme vastaanottaneet/i.test(reply)){
         addMsg('<span style="color:'+PRIMARY+';font-weight:700">Voit varata ajan painamalla "Varaa aika" -painiketta.</span>','bot');
       }
     }catch(e){

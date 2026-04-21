@@ -124,48 +124,33 @@ if (!in_array($aika, $allowedSlots, true)) {
     redirect('error');
 }
 
-/* ─── DB: check for duplicate & insert ─────────────────── */
-try {
-    $pdo = new PDO(
-        'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4',
-        DB_USER,
-        DB_PASS,
-        [
-            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES   => false,
-        ]
-    );
+/* ─── Save to JSON file ─────────────────────────────────── */
+$jsonFile = __DIR__ . '/varaukset.json';
+$bookings = file_exists($jsonFile) ? (json_decode(file_get_contents($jsonFile), true) ?: []) : [];
 
-    // Check if slot is already taken
-    $check = $pdo->prepare(
-        "SELECT id FROM varaukset WHERE toivottu_pvm = :pvm AND toivottu_aika = :aika AND tila != 'peruttu'"
-    );
-    $check->execute([':pvm' => $pvm, ':aika' => $aika]);
-    if ($check->fetch()) {
-        redirect('error'); // Slot taken — race condition guard
+// Check if slot is already taken
+foreach ($bookings as $b) {
+    if ($b['toivottu_pvm'] === $pvm && $b['toivottu_aika'] === $aika && $b['tila'] !== 'peruttu') {
+        redirect('error'); // Slot taken
     }
+}
 
-    // Insert booking
-    $stmt = $pdo->prepare(
-        "INSERT INTO varaukset
-            (toivottu_pvm, toivottu_aika, tila, nimi, puhelin, email, pyora_tyyppi, palvelu, lisatiedot)
-         VALUES
-            (:pvm, :aika, 'uusi', :nimi, :puhelin, :email, :pyora_tyyppi, :palvelu, :lisatiedot)"
-    );
-    $stmt->execute([
-        ':pvm'         => $pvm,
-        ':aika'        => $aika,
-        ':nimi'        => $nimi,
-        ':puhelin'     => $puhelin,
-        ':email'       => $email,
-        ':pyora_tyyppi'=> $pyora_tyyppi,
-        ':palvelu'     => $palvelu,
-        ':lisatiedot'  => $lisatiedot,
-    ]);
+$maxId = array_reduce($bookings, fn($carry, $b) => max($carry, (int)($b['id'] ?? 0)), 0);
+$bookings[] = [
+    'id'           => $maxId + 1,
+    'toivottu_pvm' => $pvm,
+    'toivottu_aika'=> $aika,
+    'tila'         => 'uusi',
+    'nimi'         => $nimi,
+    'puhelin'      => $puhelin,
+    'email'        => $email,
+    'pyora_tyyppi' => $pyora_tyyppi,
+    'palvelu'      => $palvelu,
+    'lisatiedot'   => $lisatiedot,
+    'luotu'        => date('Y-m-d H:i:s'),
+];
 
-} catch (PDOException $e) {
-    error_log('Pielisen Pyörähuolto varaus DB error: ' . $e->getMessage());
+if (file_put_contents($jsonFile, json_encode($bookings, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)) === false) {
     redirect('error');
 }
 
