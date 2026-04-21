@@ -25,12 +25,19 @@
     #ketju-send{background:${ACCENT};color:#000;border:none;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer}
     #ketju-quick{padding:.5rem 1rem;display:flex;gap:.5rem;flex-wrap:wrap;background:#fff}
     .k-quick{background:${PRIMARY};color:#fff;padding:.4rem .7rem;border-radius:8px;font-size:.85rem;cursor:pointer}
-    .k-hidden{display:none}
+    .k-hidden{display:none !important}
+    /* new-message badge */
+    /* place badge so its midpoint lies on the toggle border at 45° */
+    #ketju-badge{position:absolute;top:50%;left:50%;width:20px;height:20px;border-radius:50%;background:#e11;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;box-shadow:0 4px 10px rgba(0,0,0,.18);--offset:21.213px;transform:translate(calc(-50% + var(--offset)), calc(-50% - var(--offset))) scale(0);opacity:0;transition:transform .18s ease,opacity .18s ease}
+    #ketju-badge.show{transform:translate(calc(-50% + var(--offset)), calc(-50% - var(--offset))) scale(1);opacity:1;animation:pulse 1.4s infinite}
+    @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(225,17,17,0.7)}50%{box-shadow:0 0 0 8px rgba(225,17,17,0)}100%{box-shadow:0 0 0 0 rgba(225,17,17,0)}}
     `;
   document.head.appendChild(style);
 
   // Build DOM
   const toggle = document.createElement('button'); toggle.id='ketju-toggle'; toggle.title='Ketju — keskustele'; toggle.innerHTML=`<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g fill="none" fill-rule="evenodd"><rect x="8" y="10" width="32" height="24" rx="4" fill="#fff"/><rect x="18" y="4" width="12" height="6" rx="3" fill="#fff"/><circle cx="18" cy="22" r="2" fill="#1E3A5F"/><circle cx="30" cy="22" r="2" fill="#1E3A5F"/><rect x="21" y="26" width="6" height="2" rx="1" fill="#1E3A5F"/></g></svg>`;
+  // badge for new-message indicator (hidden initially)
+  const badge = document.createElement('span'); badge.id = 'ketju-badge'; badge.textContent = '1'; badge.classList.remove('show');
   const win = document.createElement('div'); win.id='ketju-window'; win.classList.add('k-hidden');
   win.innerHTML = `
     <div id="ketju-header"><div id="ketju-avatar"><svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><g fill="none" fill-rule="evenodd"><rect x="6" y="12" width="36" height="26" rx="5" fill="#ffffff"/><rect x="18" y="6" width="12" height="6" rx="3" fill="#ffffff"/><circle cx="20" cy="26" r="3" fill="#1E3A5F"/><circle cx="28" cy="26" r="3" fill="#1E3A5F"/><rect x="21" y="30" width="6" height="2" rx="1" fill="#1E3A5F"/></g></svg></div><div style="flex:1"><strong>${BOT_NAME}</strong><div style="font-size:.8rem;color:rgba(255,255,255,.8)">Auttaa ajanvarauksissa ja kysymyksissä</div></div><button id="ketju-close" style="background:none;border:none;color:rgba(255,255,255,.9);font-size:1.1rem;cursor:pointer">✕</button></div>
@@ -39,20 +46,66 @@
     <div id="ketju-input-row"><input id="ketju-input" placeholder="Kirjoita viesti..." autocomplete="off"><button id="ketju-send">➤</button></div>
   `;
   document.body.appendChild(toggle); document.body.appendChild(win);
+  toggle.appendChild(badge);
 
   const msgs = win.querySelector('#ketju-messages');
   const input = win.querySelector('#ketju-input');
   const sendBtn = win.querySelector('#ketju-send');
   const closeBtn = win.querySelector('#ketju-close');
 
-  function addMsg(text, who='bot'){
-    const d = document.createElement('div'); d.className = 'k-msg ' + (who==='user'?'k-user':'k-bot'); d.innerHTML = text; msgs.appendChild(d); msgs.scrollTop = msgs.scrollHeight;
+  /* ── Session persistence ───────────────────────────────────────────
+   * Distinguish navigation (keep chat) from refresh/new-load (clear chat).
+   * Before any same-site link click we set a one-shot 'navigating' flag.
+   * On load: if the flag is present → navigation → restore state.
+   * If absent → refresh or brand-new tab → clear state.
+   */
+  const wasNavigating = sessionStorage.getItem('ketju_nav') === '1';
+  sessionStorage.removeItem('ketju_nav'); // consume immediately
+  if(!wasNavigating){ try{ sessionStorage.removeItem(STORAGE_KEY); }catch(e){} }
+
+  // Tag every same-origin link click so the next page knows it was a navigation
+  document.addEventListener('click', e=>{
+    const a = e.target.closest('a[href]');
+    if(a && a.hostname === location.hostname && !a.target){
+      try{ sessionStorage.setItem('ketju_nav','1'); }catch(e){}
+    }
+  }, true);
+
+  function loadState(){ try{ return JSON.parse(sessionStorage.getItem(STORAGE_KEY) || 'null') || {history:[],msgs:[],badgeSeen:false} }catch(e){return {history:[],msgs:[],badgeSeen:false}} }
+  function saveState(){ try{ sessionStorage.setItem(STORAGE_KEY, JSON.stringify({history, msgs: savedMsgs, badgeSeen})); }catch(e){} }
+
+  const state = loadState();
+  const history = state.history || [];
+  const savedMsgs = state.msgs || [];
+  let badgeSeen = state.badgeSeen || false;
+
+  function pushHistory(role, content){ history.push({role, content}); if(history.length>12) history.shift(); }
+
+  function addMsg(text, who='bot', save=true){
+    const d = document.createElement('div'); d.className = 'k-msg ' + (who==='user'?'k-user':'k-bot'); d.innerHTML = text;
+    msgs.appendChild(d); msgs.scrollTop = msgs.scrollHeight;
+    if(save){ savedMsgs.push({text, who}); saveState(); }
   }
 
-  function show(){ win.classList.remove('k-hidden'); }
-  function hide(){ win.classList.add('k-hidden'); }
+  // Restore previous messages from this session (navigation without refresh)
+  savedMsgs.forEach(m => addMsg(m.text, m.who, false));
 
-  toggle.addEventListener('click', ()=>{ if (win.classList.contains('k-hidden')) show(); else hide(); });
+  function show(){ win.classList.remove('k-hidden'); saveState(); }
+  function hide(){ win.classList.add('k-hidden'); saveState(); }
+  // Chat window always starts closed — user must click to open
+
+  toggle.addEventListener('click', ()=>{
+    if(win.classList.contains('k-hidden')) show(); else hide();
+    badge.classList.remove('show');
+    badgeSeen = true;
+    saveState();
+  });
+
+  // Show badge after 3s only if not already seen this session
+  if(!badgeSeen){
+    setTimeout(()=>{ try{ badge.classList.add('show'); }catch(e){} }, 3000);
+  }
+
   closeBtn.addEventListener('click', hide);
 
   // Quick actions
@@ -66,20 +119,15 @@
   // Send chat to backend
   async function sendToBot(text){
     addMsg(text,'user');
-    addMsg('<em>Kirjoittaa...</em>','bot');
+    addMsg('<em>Kirjoittaa...</em>','bot', false);
     try{
-      const state = loadState();
-      const history = state?.history || [];
       const r = await fetch('chatbot-api.php', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text, history})});
       const data = await r.json();
-      // remove typing
       const t = msgs.querySelector('div em'); if (t) t.parentElement.remove();
       const reply = data.reply || 'En pysty vastaamaan juuri nyt. Soita 013 456 7890';
       addMsg(reply,'bot');
       pushHistory('user', text); pushHistory('assistant', reply); saveState();
-      // If bot asked to book (heuristic)
       if (/varaa|ajanvaraus|varaus|varaa aika/i.test(text) || /varaa|ajanvaraus|varaus|varaa aika/i.test(reply)){
-        // do not auto-start, but suggest booking quick action
         addMsg('<span style="color:'+PRIMARY+';font-weight:700">Voit varata ajan painamalla "Varaa aika" -painiketta.</span>','bot');
       }
     }catch(e){
@@ -90,13 +138,6 @@
 
   sendBtn.addEventListener('click', ()=>{const v=input.value.trim(); if(!v) return; input.value=''; sendToBot(v);});
   input.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); sendBtn.click(); } });
-
-  // Minimal state for history
-  function loadState(){ try{ return JSON.parse(sessionStorage.getItem(STORAGE_KEY) || 'null') || {history:[]} }catch(e){return {history:[]}} }
-  function saveState(){ try{ sessionStorage.setItem(STORAGE_KEY, JSON.stringify({history:history})) }catch(e){}
-  }
-  const history = loadState().history || [];
-  function pushHistory(role, content){ history.push({role, content}); if(history.length>12) history.shift(); }
 
   // Booking flow: simple inline wizard
   async function startBookingFlow(){
