@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Ajanvaraus - Pielisen Pyörähuolto Joensuu</title>
+<meta name="description" content="Varaa pyörähuoltoaika verkossa Joensuussa. Pielisen Pyörähuolto, Kauppakatu 14. Perushuolto, täyshuolto, sähköpyörä ja rengaskorjaus.">
+<meta name="keywords" content="pyörähuolto ajanvaraus Joensuu, varaa aika pyöräkorjaamo, polkupyörä huolto varaus, Pielisen Pyörähuolto ajanvaraus">
+<meta name="robots" content="index, follow">
+<meta name="author" content="Pielisen Pyörähuolto">
+<meta name="geo.region" content="FI-13">
+<meta name="geo.placename" content="Joensuu">
+<meta name="geo.position" content="62.5996;29.7636">
+<meta name="ICBM" content="62.5996, 29.7636">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="fi_FI">
+<meta property="og:site_name" content="Pielisen Pyörähuolto">
+<meta property="og:title" content="Ajanvaraus - Pielisen Pyörähuolto Joensuu">
+<meta property="og:description" content="Varaa pyörähuoltoaika verkossa. Perushuolto, täyshuolto, sähköpyörä ja rengaskorjaus Joensuussa.">
+<link rel="stylesheet" href="style.css">
+<style>
+/* ── Page hero ── */
+.booking-hero{background:var(--blue);color:var(--white);padding:3.5rem 2rem;text-align:center}
+.booking-hero h1{font-size:clamp(1.7rem,4vw,2.5rem);font-weight:800;letter-spacing:-.3px}
+.booking-hero p{color:rgba(255,255,255,.7);margin-top:.5rem;font-size:1rem}
+
+/* ── Wizard wrapper ── */
+.booking-wrap{max-width:680px;margin:0 auto;padding:3rem 1.5rem 4rem}
+
+/* ── Progress track ── */
+.progress-track{display:flex;align-items:center;justify-content:center;gap:0;margin-bottom:2rem}
+.progress-step{display:flex;flex-direction:column;align-items:center;gap:.35rem;position:relative}
+.progress-step:not(:last-child)::after{content:'';position:absolute;top:14px;left:calc(50% + 16px);width:calc(100% - 8px);height:2px;background:var(--border);z-index:0}
+.progress-step.done:not(:last-child)::after{background:var(--blue)}
+.step-circle{width:30px;height:30px;border-radius:50%;background:var(--border);color:var(--muted);font-size:.82rem;font-weight:700;display:flex;align-items:center;justify-content:center;position:relative;z-index:1;transition:all .25s}
+.progress-step.active .step-circle{background:var(--blue);color:var(--white)}
+.progress-step.done .step-circle{background:var(--blue);color:var(--white)}
+.step-label{font-size:.72rem;color:var(--muted);font-weight:600;letter-spacing:.3px}
+.progress-step.active .step-label{color:var(--blue)}
+.progress-step:not(:last-child){min-width:80px}
+
+/* ── Wizard card ── */
+.wizard-card{background:var(--white);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.step-panel{display:none}
+.step-panel.active{display:flex;flex-direction:column}
+.panel-header{padding:1.75rem 2rem 0}
+.panel-header h2{font-size:1.2rem;font-weight:800;color:var(--text);margin-bottom:.25rem}
+.panel-header p{font-size:.9rem;color:var(--muted)}
+.panel-body{padding:1.5rem 2rem;flex:1}
+.panel-footer{padding:1.25rem 2rem;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:var(--gray)}
+
+/* ── Calendar ── */
+.cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
+.cal-month{font-weight:700;font-size:1rem;color:var(--text)}
+.cal-arrow{background:none;border:1px solid var(--border);border-radius:6px;width:32px;height:32px;cursor:pointer;font-size:1rem;color:var(--text);display:flex;align-items:center;justify-content:center;transition:all .15s}
+.cal-arrow:hover:not(:disabled){background:var(--blue);color:var(--white);border-color:var(--blue)}
+.cal-arrow:disabled{opacity:.35;cursor:not-allowed}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.cal-weekday{text-align:center;font-size:.72rem;font-weight:700;color:var(--muted);padding:.3rem 0;letter-spacing:.5px}
+.cal-day{border:none;background:none;border-radius:7px;width:100%;aspect-ratio:1;cursor:pointer;font-size:.9rem;color:var(--text);font-weight:500;transition:all .15s;display:flex;align-items:center;justify-content:center}
+.cal-day:hover:not(:disabled){background:var(--blue);color:var(--white)}
+.cal-day.today{background:var(--gray);font-weight:700}
+.cal-day.selected{background:var(--blue);color:var(--white);font-weight:700}
+.cal-day.disabled,.cal-day.weekend{color:var(--border);cursor:not-allowed;background:none}
+.cal-day.empty{pointer-events:none}
+
+/* ── Time slots ── */
+.chosen-date-banner{background:var(--blue);color:var(--white);border-radius:8px;padding:.7rem 1rem;font-size:.9rem;font-weight:600;margin-bottom:1.25rem;display:flex;align-items:center;gap:.5rem}
+.time-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem}
+@media(max-width:440px){.time-grid{grid-template-columns:repeat(3,1fr)}}
+.time-slot{border:1.5px solid var(--border);border-radius:8px;padding:.65rem .5rem;text-align:center;cursor:pointer;transition:all .15s;background:var(--white)}
+.time-slot:hover:not(.booked):not(.selected){border-color:var(--blue);background:#eef3fa}
+.time-slot.selected{background:var(--blue);border-color:var(--blue);color:var(--white)}
+.time-slot.booked{background:var(--gray);color:var(--muted);cursor:not-allowed;opacity:.6}
+.ts-time{display:block;font-size:.95rem;font-weight:700}
+.ts-dur{display:block;font-size:.7rem;color:var(--muted);margin-top:1px}
+.time-slot.selected .ts-dur{color:rgba(255,255,255,.75)}
+.slots-loading{display:flex;align-items:center;gap:.5rem;color:var(--muted);font-size:.9rem;padding:1rem 0}
+.dot-spin{width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;display:inline-block;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+.slots-legend{display:flex;gap:1.25rem;margin-top:1rem;font-size:.78rem;color:var(--muted);align-items:center}
+.legend-dot{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:.3rem;vertical-align:middle}
+
+/* ── Summary pill ── */
+.booking-summary-pill{background:#eef3fa;border:1px solid #c9d9ee;border-radius:8px;padding:.65rem 1rem;font-size:.88rem;color:var(--blue);font-weight:600;margin-bottom:1.25rem;display:flex;gap:.5rem;align-items:center}
+
+/* ── Contact form ── */
+.fgroup{margin-bottom:1.1rem}
+.fgroup label{display:block;font-size:.83rem;font-weight:700;color:var(--text);margin-bottom:.35rem}
+.fgroup label .req{color:var(--yellow-dark)}
+.fgroup input,.fgroup select,.fgroup textarea{width:100%;padding:.75rem 1rem;border:1.5px solid var(--border);border-radius:8px;font-size:.97rem;font-family:inherit;color:var(--text);outline:none;transition:border-color .2s;background:var(--white)}
+.fgroup input:focus,.fgroup select:focus,.fgroup textarea:focus{border-color:var(--blue)}
+.fgroup input.invalid,.fgroup select.invalid{border-color:#c0392b}
+.fgroup select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23555' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 1rem center;padding-right:2.5rem}
+.fgroup textarea{resize:vertical;min-height:80px;line-height:1.6}
+.form-row-2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media(max-width:480px){.form-row-2{grid-template-columns:1fr}}
+.error-flash{background:#fdecea;border:1px solid #f5c6c6;border-radius:6px;padding:.65rem 1rem;font-size:.85rem;color:#c0392b;margin-bottom:1rem;display:none}
+.form-notice{font-size:.75rem;color:var(--muted);margin-top:.3rem;text-align:right}
+
+/* ── Buttons ── */
+.btn-next{background:var(--blue);color:var(--white);font-weight:700;font-size:.92rem;padding:.6rem 1.4rem;border:none;border-radius:7px;cursor:pointer;transition:background .2s}
+.btn-next:hover:not(:disabled){background:var(--blue-light)}
+.btn-next:disabled{opacity:.4;cursor:not-allowed}
+.btn-prev{background:none;border:1px solid var(--border);color:var(--muted);font-weight:600;font-size:.9rem;padding:.55rem 1.1rem;border-radius:7px;cursor:pointer;transition:all .15s}
+.btn-prev:hover{border-color:var(--blue);color:var(--blue)}
+.btn-submit-final{background:var(--blue);color:var(--white);font-weight:700;font-size:.95rem;padding:.7rem 1.75rem;border:none;border-radius:7px;cursor:pointer;transition:background .2s;display:flex;align-items:center;gap:.5rem}
+.btn-submit-final:hover:not(:disabled){background:var(--blue-light)}
+.btn-submit-final:disabled{opacity:.5;cursor:not-allowed}
+.bk-spinner{width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:none;flex-shrink:0}
+
+/* ── Success screen ── */
+.success-screen{text-align:center;padding:3rem 2rem}
+.success-icon{width:70px;height:70px;background:#d4edda;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem}
+.success-icon svg{width:32px;height:32px;stroke:#1a7a4a;stroke-width:2.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.success-screen h2{font-size:1.5rem;font-weight:800;color:var(--text);margin-bottom:.6rem}
+.success-screen p{color:var(--muted);font-size:.97rem;line-height:1.7;max-width:400px;margin:0 auto}
+.success-summary{display:inline-block;background:var(--gray);border-radius:10px;padding:1rem 1.5rem;margin:1.5rem 0;text-align:left}
+.ss-row{display:flex;gap:2rem;font-size:.9rem;padding:.2rem 0;justify-content:space-between}
+.ss-row span{color:var(--muted)}
+.ss-row strong{color:var(--text)}
+.btn-back-home{display:inline-flex;align-items:center;gap:.4rem;margin-top:.5rem;color:var(--blue);font-weight:700;text-decoration:none;font-size:.95rem}
+.btn-back-home:hover{text-decoration:underline}
+
+/* ── Side info ── */
+.side-info{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1.5rem}
+@media(max-width:520px){.side-info{grid-template-columns:1fr}}
+.side-box{background:var(--white);border:1px solid var(--border);border-radius:10px;padding:1rem 1.25rem}
+.side-box-title{font-size:.72rem;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--blue);margin-bottom:.4rem}
+.side-box p{font-size:.88rem;color:var(--muted);line-height:1.65}
+.side-box a{color:var(--blue);text-decoration:none;font-weight:600}
+.side-box a:hover{text-decoration:underline}
+
+
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-logo" href="index.html"><span>Pielisen</span> Pyörähuolto</a>
+  <ul class="nav-links">
+    <li><a href="index.html#ajankohtaista">Ajankohtaista</a></li>
+    <li><a href="index.html#palvelut">Palvelut</a></li>
+    <li><a href="index.html#hinnasto">Hinnasto</a></li>
+    <li><a href="index.html#yhteystiedot">Yhteystiedot</a></li>
+    <li><a href="ukk.html">UKK</a></li>
+    <li><a href="ajanvaraus.html" style="color:var(--yellow)">Ajanvaraus</a></li>
+  </ul>
+  <div class="nav-right">
+    <a class="nav-cta" href="tel:+358134567890"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;margin-right:3px"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.27h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.91a16 16 0 0 0 5.55 5.55l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7a2 2 0 0 1 1.72 2z"/></svg> Soita</a>
+    <button class="hamburger" id="hbg" aria-label="Valikko"><span></span><span></span><span></span></button>
+  </div>
+</nav>
+
+<div class="mobile-menu" id="mob-menu">
+  <a href="index.html#ajankohtaista">Ajankohtaista</a>
+  <a href="index.html#palvelut">Palvelut</a>
+  <a href="index.html#hinnasto">Hinnasto</a>
+  <a href="index.html#yhteystiedot">Yhteystiedot</a>
+  <a href="ukk.html">UKK</a>
+  <a href="ajanvaraus.html" style="color:var(--yellow)">Ajanvaraus</a>
+  <a href="tel:+358134567890" class="m-cta"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;margin-right:4px"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.27h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.91a16 16 0 0 0 5.55 5.55l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7a2 2 0 0 1 1.72 2z"/></svg> Soita 013 456 7890</a>
+</div>
+
+<div class="booking-hero">
+  <h1>Varaa huoltoaika</h1>
+  <p>Valitse päivä, aika ja kerro pyörästäsi - vahvistus tulee sähköpostiin.</p>
+</div>
+
+<div class="booking-wrap">
+
+  <!-- Progress indicator -->
+  <div class="progress-track">
+    <div class="progress-step active" data-step="1">
+      <div class="step-circle">1</div>
+      <div class="step-label">Päivä</div>
+    </div>
+    <div class="progress-step" data-step="2">
+      <div class="step-circle">2</div>
+      <div class="step-label">Aika</div>
+    </div>
+    <div class="progress-step" data-step="3">
+      <div class="step-circle">3</div>
+      <div class="step-label">Tiedot</div>
+    </div>
+    <div class="progress-step" data-step="4">
+      <div class="step-circle">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="2,7 6,11 12,3"/></svg>
+      </div>
+      <div class="step-label">Valmis</div>
+    </div>
+  </div>
+
+  <div class="wizard-card">
+
+    <!-- ═══ STEP 1: Calendar ═══ -->
+    <div class="step-panel active" id="step1">
+      <div class="panel-header">
+        <h2>Valitse huoltopäivä</h2>
+        <p>Lauantaisin palvelemme lyhennettynä (10-14). Sunnuntait suljettu.</p>
+      </div>
+      <div class="panel-body">
+        <div class="cal-nav">
+          <button class="cal-arrow" id="calPrev" onclick="changeMonth(-1)" aria-label="Edellinen kuukausi">&#8592;</button>
+          <div class="cal-month" id="calMonth"></div>
+          <button class="cal-arrow" onclick="changeMonth(1)" aria-label="Seuraava kuukausi">&#8594;</button>
+        </div>
+        <div class="cal-grid" id="calGrid"></div>
+      </div>
+      <div class="panel-footer">
+        <span></span>
+        <button class="btn-next" id="btnStep1" onclick="goTo(2)" disabled>Jatka &#8594;</button>
+      </div>
+    </div>
+
+    <!-- ═══ STEP 2: Time slots ═══ -->
+    <div class="step-panel" id="step2">
+      <div class="panel-header">
+        <h2>Valitse huoltoaika</h2>
+        <p>Harmaalla merkityt ajat ovat jo varattuja.</p>
+      </div>
+      <div class="panel-body">
+        <div class="chosen-date-banner">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span>Valittu päivä: <strong id="chosenDateText">-</strong></span>
+        </div>
+        <div id="slotsArea">
+          <div class="slots-loading"><span class="dot-spin"></span>&nbsp;Ladataan vapaita aikoja...</div>
+        </div>
+        <div class="slots-legend" id="slotsLegend" style="display:none">
+          <span><span class="legend-dot" style="background:var(--blue)"></span>Vapaa</span>
+          <span><span class="legend-dot" style="background:var(--gray);border:1.5px solid var(--border)"></span>Varattu</span>
+        </div>
+      </div>
+      <div class="panel-footer">
+        <button class="btn-prev" onclick="goTo(1, true)">&#8592; Takaisin</button>
+        <button class="btn-next" id="btnStep2" onclick="goTo(3)" disabled>Jatka &#8594;</button>
+      </div>
+    </div>
+
+    <!-- ═══ STEP 3: Contact + service ═══ -->
+    <div class="step-panel" id="step3">
+      <div class="panel-header">
+        <h2>Yhteystietosi</h2>
+        <p>Saat sähköpostiin vahvistuksen varatusta ajasta.</p>
+      </div>
+      <div class="panel-body">
+        <div class="booking-summary-pill">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span id="pillText">-</span>
+        </div>
+
+        <div class="error-flash" id="errorFlash">Tarkista punaisella merkityt kentät.</div>
+
+        <form id="varausForm" action="varaus.php" method="POST" novalidate>
+          <input type="hidden" name="toivottu_pvm"  id="hiddenPvm">
+          <input type="hidden" name="toivottu_aika" id="hiddenAika">
+          <!-- Honeypot -->
+          <div style="display:none" aria-hidden="true">
+            <input type="text" name="website" tabindex="-1" autocomplete="off">
+          </div>
+
+          <div class="form-row-2">
+            <div class="fgroup">
+              <label for="nimi">Nimi <span class="req">*</span></label>
+              <input type="text" id="nimi" name="nimi" placeholder="Etunimi Sukunimi" maxlength="80" required autocomplete="name">
+            </div>
+            <div class="fgroup">
+              <label for="puhelin">Puhelin <span class="req">*</span></label>
+              <input type="tel" id="puhelin" name="puhelin" placeholder="040 123 4567" maxlength="30" required autocomplete="tel">
+            </div>
+          </div>
+
+          <div class="fgroup">
+            <label for="email">Sähköposti <span class="req">*</span></label>
+            <input type="email" id="email" name="email" placeholder="nimi@esimerkki.fi" maxlength="120" required autocomplete="email">
+          </div>
+
+          <div class="form-row-2">
+            <div class="fgroup">
+              <label for="pyora_tyyppi">Pyörän tyyppi <span class="req">*</span></label>
+              <select id="pyora_tyyppi" name="pyora_tyyppi" required>
+                <option value="">Valitse...</option>
+                <option value="tavallinen">Tavallinen polkupyörä</option>
+                <option value="sahkopyora">Sähköpyörä</option>
+                <option value="lapsi">Lasten pyörä</option>
+                <option value="muu">Muu</option>
+              </select>
+            </div>
+            <div class="fgroup">
+              <label for="palvelu">Palvelu <span class="req">*</span></label>
+              <select id="palvelu" name="palvelu" required>
+                <option value="">Valitse...</option>
+                <option value="perushuolto">Perushuolto - 39 €</option>
+                <option value="tayshuolto">Täyshuolto - 89 €</option>
+                <option value="sahko_huolto">Sähköpyörän huolto - 55 € alkaen</option>
+                <option value="rengaskorjaus">Rengaskorjaus - 15 € alkaen</option>
+                <option value="muu">Muu / kerron lisää</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="fgroup">
+            <label for="lisatiedot">Lisätiedot</label>
+            <textarea id="lisatiedot" name="lisatiedot" placeholder="Kerro lisää pyörästäsi tai ongelmasta..." maxlength="1000"></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="panel-footer">
+        <button class="btn-prev" onclick="goTo(2, true)">&#8592; Takaisin</button>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.25rem">
+          <button class="btn-submit-final" id="btnSubmit" onclick="submitForm()">
+            <span id="btnSubmitText">Lähetä varaus</span>
+            <div class="bk-spinner" id="submitSpinner"></div>
+            <span id="btnArrow">&#8594;</span>
+          </button>
+          <p class="form-notice">Tietosi käsitellään luottamuksellisesti.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ STEP 4: Success ═══ -->
+    <div class="step-panel" id="step4">
+      <div class="success-screen">
+        <div class="success-icon">
+          <svg viewBox="0 0 24 24"><polyline points="4,12 9,17 20,6"/></svg>
+        </div>
+        <h2>Varaus lähetetty!</h2>
+        <p>Vahvistus on lähetetty sähköpostiisi. Tarkista myös roskapostikansio.</p>
+        <div class="success-summary">
+          <div class="ss-row"><span>Päivä</span><strong id="ss-pvm">-</strong></div>
+          <div class="ss-row"><span>Aika</span><strong id="ss-aika">-</strong></div>
+          <div class="ss-row"><span>Osoite</span><strong>Kauppakatu 14, Joensuu</strong></div>
+        </div>
+        <a href="index.html" class="btn-back-home">&#8592; Takaisin etusivulle</a>
+      </div>
+    </div>
+
+  </div><!-- /wizard-card -->
+
+  <div class="side-info">
+    <div class="side-box">
+      <div class="side-box-title">Aukioloajat</div>
+      <p>Ma-Pe 9:00-17:00<br>La 10:00-14:00<br>Su suljettu</p>
+    </div>
+    <div class="side-box">
+      <div class="side-box-title">Tai soita suoraan</div>
+      <p><a href="tel:+358134567890">013 456 7890</a><br>Varaamme ajan heti puhelimitse.</p>
+    </div>
+  </div>
+
+</div><!-- /booking-wrap -->
+
+<footer>
+  <div class="footer-inner">
+    <strong style="color:var(--text)">Pielisen Pyörähuolto</strong>
+    <span>&copy; 2026 Pielisen Pyörähuolto. Kauppakatu 14, 80100 Joensuu.</span>
+    <a href="admin.html">Hallintapaneeli</a>
+  </div>
+</footer>
+
+<script>
+/* ════════════════════════════════
+   STATE
+════════════════════════════════ */
+const state = {
+  currentStep:  1,
+  selectedDate: null,
+  selectedTime: null,
+  bookedSlots:  [],
+};
+
+const SLOTS_WEEKDAY = ['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00'];
+const SLOTS_SAT     = ['10:00','11:00','12:00','13:00'];
+
+const FI_MONTHS    = ['Tammikuu','Helmikuu','Maaliskuu','Huhtikuu','Toukokuu','Kesäkuu',
+                      'Heinäkuu','Elokuu','Syyskuu','Lokakuu','Marraskuu','Joulukuu'];
+const FI_WEEKDAYS  = ['Ma','Ti','Ke','To','Pe','La','Su'];
+const FI_DAYS_LONG = ['sunnuntai','maanantai','tiistai','keskiviikko','torstai','perjantai','lauantai'];
+
+/* ════════════════════════════════
+   CALENDAR
+════════════════════════════════ */
+let calViewYear, calViewMonth;
+
+function initCalendar() {
+  const now = new Date();
+  calViewYear  = now.getFullYear();
+  calViewMonth = now.getMonth();
+  renderCalendar();
+}
+
+function changeMonth(dir) {
+  calViewMonth += dir;
+  if (calViewMonth > 11) { calViewMonth = 0;  calViewYear++; }
+  if (calViewMonth < 0)  { calViewMonth = 11; calViewYear--; }
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  document.getElementById('calMonth').textContent = FI_MONTHS[calViewMonth] + ' ' + calViewYear;
+
+  const isCurrentMonth = calViewYear === today.getFullYear() && calViewMonth === today.getMonth();
+  document.getElementById('calPrev').disabled = isCurrentMonth;
+
+  const grid = document.getElementById('calGrid');
+  grid.innerHTML = '';
+
+  FI_WEEKDAYS.forEach(d => {
+    const el = document.createElement('div');
+    el.className = 'cal-weekday';
+    el.textContent = d;
+    grid.appendChild(el);
+  });
+
+  const firstDow = new Date(calViewYear, calViewMonth, 1).getDay();
+  const offset   = firstDow === 0 ? 6 : firstDow - 1;
+  for (let i = 0; i < offset; i++) {
+    const el = document.createElement('div');
+    el.className = 'cal-day empty';
+    grid.appendChild(el);
+  }
+
+  const daysInMonth = new Date(calViewYear, calViewMonth + 1, 0).getDate();
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = new Date(calViewYear, calViewMonth, d);
+    const dow  = date.getDay(); // 0=Sun
+    const isPast    = date < today;
+    const isSunday  = dow === 0;
+    const isToday   = date.getTime() === today.getTime();
+    const isSelected = state.selectedDate && state.selectedDate.getTime() === date.getTime();
+
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.textContent = d;
+
+    let cls = 'cal-day';
+    if (isToday)    cls += ' today';
+    if (isSelected) cls += ' selected';
+    if (isPast || isSunday) {
+      cls += isSunday ? ' weekend' : ' disabled';
+      el.disabled = true;
+    } else {
+      el.addEventListener('click', () => selectDay(date));
+    }
+    el.className = cls;
+    grid.appendChild(el);
+  }
+}
+
+function selectDay(date) {
+  state.selectedDate = date;
+  state.selectedTime = null;
+  renderCalendar();
+  document.getElementById('btnStep1').disabled = false;
+}
+
+/* ════════════════════════════════
+   TIME SLOTS
+════════════════════════════════ */
+function getSlotsForDate(date) {
+  return date.getDay() === 6 ? SLOTS_SAT : SLOTS_WEEKDAY;
+}
+
+function loadSlots(dateISO) {
+  const area   = document.getElementById('slotsArea');
+  const legend = document.getElementById('slotsLegend');
+  area.innerHTML = '<div class="slots-loading"><span class="dot-spin"></span>&nbsp;Ladataan vapaita aikoja...</div>';
+  legend.style.display = 'none';
+  document.getElementById('btnStep2').disabled = true;
+  state.selectedTime = null;
+  state.bookedSlots  = [];
+
+  fetch('slots.php?date=' + dateISO)
+    .then(r => r.json())
+    .then(data => {
+      state.bookedSlots = data.booked || [];
+      renderTimeSlots();
+      legend.style.display = 'flex';
+    })
+    .catch(() => {
+      state.bookedSlots = [];
+      renderTimeSlots();
+      legend.style.display = 'flex';
+    });
+}
+
+function renderTimeSlots() {
+  const area  = document.getElementById('slotsArea');
+  const slots = getSlotsForDate(state.selectedDate);
+  const grid  = document.createElement('div');
+  grid.className = 'time-grid';
+
+  slots.forEach(slot => {
+    const isBooked   = state.bookedSlots.includes(slot);
+    const isSelected = state.selectedTime === slot;
+    const el = document.createElement('div');
+    el.className = 'time-slot' + (isBooked ? ' booked' : '') + (isSelected ? ' selected' : '');
+
+    if (isBooked) {
+      el.innerHTML = '<span class="ts-time">' + slot + '</span><span class="ts-dur">Varattu</span>';
+      el.title = 'Tämä aika on jo varattu';
+    } else {
+      el.innerHTML = '<span class="ts-time">' + slot + '</span><span class="ts-dur">~1 h</span>';
+      el.addEventListener('click', () => selectTime(slot));
+    }
+    grid.appendChild(el);
+  });
+
+  area.innerHTML = '';
+  area.appendChild(grid);
+}
+
+function selectTime(slot) {
+  state.selectedTime = slot;
+  renderTimeSlots();
+  document.getElementById('btnStep2').disabled = false;
+}
+
+/* ════════════════════════════════
+   STEP NAVIGATION
+════════════════════════════════ */
+function goTo(step, goingBack) {
+  const current = document.getElementById('step' + state.currentStep);
+  const next    = document.getElementById('step' + step);
+  if (!current || !next) return;
+  updateProgress(step);
+  current.classList.remove('active');
+  next.classList.add('active');
+  state.currentStep = step;
+
+  if (step === 2) {
+    document.getElementById('chosenDateText').textContent = formatDateFi(state.selectedDate);
+    loadSlots(formatDateISO(state.selectedDate));
+  }
+  if (step === 3) {
+    document.getElementById('pillText').textContent =
+      formatDateFi(state.selectedDate) + '  ·  ' + state.selectedTime;
+    document.getElementById('hiddenPvm').value  = formatDateISO(state.selectedDate);
+    document.getElementById('hiddenAika').value = state.selectedTime;
+  }
+  document.querySelector('.wizard-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function updateProgress(activeStep) {
+  document.querySelectorAll('.progress-step').forEach(el => {
+    const s = parseInt(el.dataset.step);
+    el.classList.toggle('active', s === activeStep);
+    el.classList.toggle('done',   s < activeStep);
+  });
+}
+
+/* ════════════════════════════════
+   FORM SUBMIT
+════════════════════════════════ */
+function submitForm() {
+  let valid = true;
+  ['nimi','puhelin','email','pyora_tyyppi','palvelu'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el || !el.value.trim()) { if (el) el.classList.add('invalid'); valid = false; }
+    else el.classList.remove('invalid');
+  });
+
+  const emailEl = document.getElementById('email');
+  if (emailEl.value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailEl.value)) {
+    emailEl.classList.add('invalid'); valid = false;
+  }
+
+  if (!valid) {
+    const flash = document.getElementById('errorFlash');
+    flash.textContent = 'Tarkista punaisella merkityt kentät.';
+    flash.style.display = 'block';
+    return;
+  }
+  document.getElementById('errorFlash').style.display = 'none';
+
+  const btn = document.getElementById('btnSubmit');
+  btn.disabled = true;
+  document.getElementById('btnSubmitText').textContent = 'Lähetetään...';
+  document.getElementById('submitSpinner').style.display = 'block';
+  document.getElementById('btnArrow').style.display = 'none';
+
+  fetch('varaus.php', { method: 'POST', body: new FormData(document.getElementById('varausForm')) })
+    .then(res => {
+      if (res.redirected && res.url.includes('status=error')) throw new Error('server_error');
+    })
+    .then(() => {
+      document.getElementById('ss-pvm').textContent  = formatDateFi(state.selectedDate);
+      document.getElementById('ss-aika').textContent = state.selectedTime;
+      goTo(4);
+    })
+    .catch(() => {
+      btn.disabled = false;
+      document.getElementById('btnSubmitText').textContent = 'Lähetä varaus';
+      document.getElementById('submitSpinner').style.display = 'none';
+      document.getElementById('btnArrow').style.display = 'inline';
+      const flash = document.getElementById('errorFlash');
+      flash.textContent = 'Varauksessa tapahtui virhe. Yritä uudelleen tai soita meille.';
+      flash.style.display = 'block';
+    });
+}
+
+/* ════════════════════════════════
+   HELPERS
+════════════════════════════════ */
+function formatDateFi(date) {
+  if (!date) return '-';
+  return FI_DAYS_LONG[date.getDay()] + ' ' + date.getDate() + '.' + (date.getMonth()+1) + '.' + date.getFullYear();
+}
+function formatDateISO(date) {
+  if (!date) return '';
+  return date.getFullYear() + '-' +
+         String(date.getMonth()+1).padStart(2,'0') + '-' +
+         String(date.getDate()).padStart(2,'0');
+}
+
+// Hamburger
+const hbg = document.getElementById('hbg');
+const mob = document.getElementById('mob-menu');
+hbg.addEventListener('click', () => {
+  const open = mob.classList.toggle('open');
+  hbg.classList.toggle('active', open);
+});
+document.querySelectorAll('#mob-menu a').forEach(a => {
+  a.addEventListener('click', () => { mob.classList.remove('open'); hbg.classList.remove('active'); });
+});
+
+// Clear invalid on input
+['nimi','puhelin','email','pyora_tyyppi','palvelu'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('input', function(){ this.classList.remove('invalid'); });
+});
+
+document.addEventListener('DOMContentLoaded', initCalendar);
+</script>
+</body>
+</html>
