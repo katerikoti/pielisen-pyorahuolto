@@ -52,6 +52,7 @@ mark{background:rgba(245,197,24,.5);border-radius:2px;padding:0 2px;font-weight:
   .search-wrap,.faq-wrap{padding-left:1.25rem;padding-right:1.25rem}
 }
 </style>
+<script src="cookie-consent.js"></script>
 </head>
 <body>
 
@@ -140,7 +141,11 @@ mark{background:rgba(245,197,24,.5);border-radius:2px;padding:0 2px;font-weight:
   <div class="footer-inner">
     <strong style="color:var(--text)">Pielisen Pyörähuolto</strong>
     <span>&copy; 2026 Pielisen Pyörähuolto. Kauppakatu 14, 80100 Joensuu.</span>
-    <a href="admin.html">Hallintapaneeli</a>
+    <span>
+      <a href="tietosuoja.html">Tietosuoja</a>
+      &nbsp;·&nbsp;
+      <a href="admin.html">Hallintapaneeli</a>
+    </span>
   </div>
 </footer>
 
@@ -196,6 +201,6 @@ const hbg=document.getElementById('hbg'),mob=document.getElementById('mob-menu')
 hbg.addEventListener('click',()=>{hbg.classList.toggle('open');mob.classList.toggle('open')});
 mob.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>{hbg.classList.remove('open');mob.classList.remove('open')}));
 </script>
-<script src="chatbot.js?v=1776769275"></script>
+<script src="chatbot.js?v=1777047397"></script>
 </body>
 </html>

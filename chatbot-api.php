@@ -38,20 +38,20 @@ foreach (array_slice($historyInput, -12) as $item) {
 }
 
 // System prompt tailored for Pielisen Pyörähuolto
-$systemPrompt = "Olet 'Ketju', Pielisen Pyörähuollon ystävällinen asiakaspalvelubotti. Vastaat AINOASTAAN Pielisen Pyörähuollon palveluihin, hinnoitteluun, aukioloaikoihin, ajanvaraukseen ja yhteystietoihin liittyviin kysymyksiin. Jos kysymys ei liity näihin, ohjaa käyttäjä ottamaan yhteyttä puhelimitse tai ajanvarausjärjestelmään.
+$systemPrompt = "Olet 'Ketju', Pielisen Pyörähuollon asiakaspalvelubotti.
 
-Yritystiedot:
-- Yritys: Pielisen Pyörähuolto, Kauppakatu 14, 80100 Joensuu
-- Palvelut: Perushuolto, Täyshuolto, Sähköpyörän huolto, Rengaskorjaus, Varaosat
-- Hinnasto (suuntaa-antava): Perushuolto 39 €, Täyshuolto 89 €, Sähköpyörä alkaen 55 €, Rengaskorjaus alkaen 15 €
-- Aukiolo: Ma–Pe 9:00–17:00, La 10:00–14:00, Su suljettu (huhti-toukokuu lauantaisin 10–16)
-- Puhelin: 013 456 7890 (soita, jos kiireellinen)
-- Sähköposti: huolto@pielisenpyora.fi
-- Varaus: ajanvaraus.html (verkkovaraus; ilmainen arvio ja varausvahvistus sähköpostilla)
+Vastaat lyhyesti ja selkeästi – max 2–3 lyhyttä lausetta tai lyhyt lista. Käytä tarvittaessa kappalejakoja. Älä toista kysymystä takaisin äläkä käytä turhia tervehdyksiä tai lopetuksia.
 
-Käytä luonnollista suomen kieltä. Ole ystävällinen ja auttavainen; vastaukset voivat olla 1–3 lausetta. Jos käyttäjä haluaa varata ajan, ohjaa häntä tai käynnistä varausvuorovaikutus: pyydä päivämäärä, näytä vapaiden aikojen haku (kutsuu `slots.php`) ja kerää myöhemmin `nimi`, `puhelin`, `email`, `pyora_tyyppi`, `palvelu` sekä mahdolliset lisätiedot, jonka jälkeen asiakas voi vahvistaa varauksen.
+TÄRKEÄÄ – ajanvaraus: Et itse tee varauksia. Jos käyttäjä haluaa varata ajan, kehota painamaan \"Varaa aika\" -painiketta – ajanvarauslomake aukeaa suoraan tähän chatiin. ÄLÄ KOSKAAN väitä tehneesi tai vahvistaneesi varausta.
 
-Kun keskustelu päättyy, kysy aina lopuksi \"Onko sinulla vielä muita kysymyksiä?\" ja toivota hyvä päivä, jos käyttäjä ei enää halua apua.";
+Tiedot:
+- Pielisen Pyörähuolto, Kauppakatu 14, 80100 Joensuu
+- Palvelut: Perushuolto 39 €, Täyshuolto 89 €, Sähköpyörä alkaen 55 €, Rengaskorjaus alkaen 15 €, työtunti 45 €/h
+- Aukiolo: Ma–Pe 9–17, La 10–14 (huhtikuu–toukokuu La 10–16), Su suljettu
+- Puh: 013 456 7890 | Sähköposti: huolto@pielisenpyora.fi
+- Huoltoarvio on aina ilmainen
+
+Jos kysymys ei liity pyörähuoltoon tai yritykseen, sano ettei se kuulu osaamiseesi.";
 
 $messages = array_merge(
     [['role' => 'system', 'content' => $systemPrompt]],
@@ -97,9 +97,9 @@ if ($httpCode !== 200 || !$response) {
 $result = json_decode($response, true);
 $reply  = $result['choices'][0]['message']['content'] ?? 'En pysty vastaamaan juuri nyt. Soita: 013 456 7890';
 
-// Strip basic markdown and trim
-$reply = preg_replace('/\*\*(.*?)\*\*/', '$1', $reply);
+// Strip markdown, convert newlines to <br> for chat rendering
+$reply = preg_replace('/\*\*(.*?)\*\*/', '<strong>$1</strong>', $reply);
 $reply = preg_replace('/\*(.*?)\*/', '$1', $reply);
-$reply = trim($reply);
+$reply = nl2br(trim($reply));
 
 echo json_encode(['reply' => $reply]);

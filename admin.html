@@ -107,7 +107,6 @@ textarea{resize:vertical;min-height:100px;line-height:1.55}
 .bk-info a:hover{text-decoration:underline}
 .bk-actions{padding:.6rem 1rem;display:flex;gap:.4rem;flex-wrap:wrap}
 .bk-btn{font-size:.78rem;font-weight:600;padding:.28rem .7rem;border-radius:6px;border:1px solid var(--border);background:var(--white);cursor:pointer;transition:all .15s}
-.bk-vahvista:hover{background:#d4edda;border-color:#c3e6cb;color:#155724}
 .bk-valmis:hover{background:#cce5ff;border-color:#b8daff;color:#004085}
 .bk-peru:hover{background:#fdecea;border-color:#f5c6c6;color:var(--red)}
 .bk-palauta:hover{background:#fff3cd;border-color:#ffeeba;color:#856404}
@@ -362,8 +361,6 @@ function renderBookings(list){
   area.innerHTML=list.map(b=>{
     const t=TILAT[b.tila]||{l:b.tila,c:''};
     const acts=[];
-    if(b.tila!=='vahvistettu'&&b.tila!=='valmis'&&b.tila!=='peruttu')
-      acts.push(`<button class="bk-btn bk-vahvista" onclick="updateBk(${b.id},'vahvistettu')">Vahvista</button>`);
     if(b.tila!=='valmis'&&b.tila!=='peruttu')
       acts.push(`<button class="bk-btn bk-valmis" onclick="updateBk(${b.id},'valmis')">Valmis</button>`);
     if(b.tila!=='peruttu')

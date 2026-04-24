@@ -31,6 +31,19 @@
     #ketju-badge{position:absolute;top:50%;left:50%;width:20px;height:20px;border-radius:50%;background:#e11;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;box-shadow:0 4px 10px rgba(0,0,0,.18);--offset:21.213px;transform:translate(calc(-50% + var(--offset)), calc(-50% - var(--offset))) scale(0);opacity:0;transition:transform .18s ease,opacity .18s ease}
     #ketju-badge.show{transform:translate(calc(-50% + var(--offset)), calc(-50% - var(--offset))) scale(1);opacity:1;animation:pulse 1.4s infinite}
     @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(225,17,17,0.7)}50%{box-shadow:0 0 0 8px rgba(225,17,17,0)}100%{box-shadow:0 0 0 0 rgba(225,17,17,0)}}
+    .k-wizard{background:#fff;border:1.5px solid #dde4ef;border-radius:10px;padding:12px;width:calc(100% - 26px);align-self:stretch;font-size:.87rem;box-sizing:border-box}
+    .k-wizard input,.k-wizard select,.k-wizard textarea{width:100%;padding:6px 9px;border:1px solid #ddd;border-radius:7px;font-size:.85rem;font-family:inherit;color:#111;box-sizing:border-box;margin-top:3px}
+    .k-wizard textarea{resize:none;height:52px}
+    .k-wizard-title{font-weight:700;font-size:.88rem;color:${PRIMARY};margin-bottom:8px}
+    .kw-field{margin-top:7px}
+    .kw-field label{font-size:.78rem;font-weight:700;color:#555;display:block}
+    .k-slots{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+    .k-slot{padding:5px 11px;border:1.5px solid ${PRIMARY};border-radius:7px;font-size:.82rem;cursor:pointer;background:#fff;color:${PRIMARY};font-weight:600;transition:all .15s}
+    .k-slot:hover{background:${PRIMARY};color:#fff}
+    .k-wiz-btn{width:100%;margin-top:10px;padding:8px;background:${ACCENT};border:none;border-radius:8px;font-weight:700;font-size:.88rem;cursor:pointer;color:#000;transition:filter .15s}
+    .k-wiz-btn:hover{filter:brightness(.93)}
+    .kw-err{color:#c00;font-size:.78rem;margin-top:5px;display:none}
+    .k-wiz-done{opacity:.5;pointer-events:none}
     `;
   document.head.appendChild(style);
 
@@ -90,6 +103,11 @@
   // Restore previous messages from this session (navigation without refresh)
   savedMsgs.forEach(m => addMsg(m.text, m.who, false));
 
+  // Greet on first open (no prior messages this session)
+  if(!savedMsgs.length){
+    addMsg('Hei, olen Ketju, Pielisen Pyörähuollon avustaja. Miten voin auttaa?', 'bot');
+  }
+
   function show(){ win.classList.remove('k-hidden'); saveState(); }
   function hide(){ win.classList.add('k-hidden'); saveState(); }
   // Chat window always starts closed — user must click to open
@@ -119,6 +137,12 @@
   // Send chat to backend
   async function sendToBot(text){
     addMsg(text,'user');
+    // Detect booking intent — launch inline wizard directly
+    if(/varaa\s+aika|haluan\s+varata|haluaisin\s+varata|varaan\s+ajan|tahdon\s+varata/i.test(text)){
+      addMsg('Tehdään varaus täällä suoraan! 👇','bot');
+      startBookingFlow();
+      return;
+    }
     addMsg('<em>Kirjoittaa...</em>','bot', false);
     try{
       const r = await fetch('chatbot-api.php', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text, history})});
@@ -127,10 +151,6 @@
       const reply = data.reply || 'En pysty vastaamaan juuri nyt. Soita 013 456 7890';
       addMsg(reply,'bot');
       pushHistory('user', text); pushHistory('assistant', reply); saveState();
-      // Only suggest booking button if reply mentions it but doesn't confirm a completed booking
-      if (/varaa|ajanvaraus/i.test(reply) && !/vahvistettu|vastaanotettu|varaus on|olemme vastaanottaneet/i.test(reply)){
-        addMsg('<span style="color:'+PRIMARY+';font-weight:700">Voit varata ajan painamalla "Varaa aika" -painiketta.</span>','bot');
-      }
     }catch(e){
       const t = msgs.querySelector('div em'); if (t) t.parentElement.remove();
       addMsg('Chatbot ei ole käytettävissä. Soita 013 456 7890','bot');
@@ -140,59 +160,131 @@
   sendBtn.addEventListener('click', ()=>{const v=input.value.trim(); if(!v) return; input.value=''; sendToBot(v);});
   input.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); sendBtn.click(); } });
 
-  // Booking flow: simple inline wizard
-  async function startBookingFlow(){
-    // Step: ask date
-    const date = prompt('Valitse päivämäärä (YYYY-MM-DD). Huom: ei menneitä päiviä.');
-    if(!date) return addMsg('Peruttu. Jos haluat varata myöhemmin, paina "Varaa aika".','bot');
-    // Fetch booked slots
-    addMsg('Haetaan vapaita aikoja '+date+'...','bot');
-    try{
-      const r = await fetch('slots.php?date='+encodeURIComponent(date));
-      const data = await r.json();
-      const booked = data.booked || [];
-      // Allowed slots same as varaus.php
-      const dow = new Date(date).getDay();
-      const allowed = dow===0?[]:(dow===6?['10:00','11:00','12:00','13:00']:['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00']);
-      const free = allowed.filter(s=>!booked.includes(s));
-      if(!free.length) return addMsg('Valitettavasti valitsemanasi päivänä ei ole vapaita aikoja. Yritä toinen päivä.','bot');
-      const slot = prompt('Vapaat ajat: '+free.join(', ')+'\nKirjoita valitsemasi kellonaika (esim. 10:00)');
-      if(!slot || !free.includes(slot)) return addMsg('Aikavalinta ei kelpaa tai peruutettu.','bot');
-      // collect contact info
-      const nimi = prompt('Anna nimesi'); if(!nimi) return addMsg('Peruttu.','bot');
-      const puhelin = prompt('Puhelinnumero'); if(!puhelin) return addMsg('Peruttu.','bot');
-      const email = prompt('Sähköposti (vahvistus lähetetään tähän)'); if(!email) return addMsg('Peruttu.','bot');
-      const pyora = prompt('Pyörätyyppi (tavallinen / sahkopyora / lapsi / muu)', 'tavallinen');
-      const palvelu = prompt('Palvelu (perushuolto / tayshuolto / sahko_huolto / rengaskorjaus / muu)', 'perushuolto');
-      const lisatiedot = prompt('Lisätiedot (valinnainen)', '');
+  // Finnish date formatter
+  function fmtDateFi(d){
+    const [y,m,day]=d.split('-');
+    const mo=['tammikuuta','helmikuuta','maaliskuuta','huhtikuuta','toukokuuta','kesäkuuta','heinäkuuta','elokuuta','syyskuuta','lokakuuta','marraskuuta','joulukuuta'];
+    return `${parseInt(day)}. ${mo[parseInt(m)-1]} ${y}`;
+  }
 
-      // Confirm
-      const confirmMsg = `Vahvista varaus: ${date} klo ${slot} - ${palvelu} - ${nimi} (${puhelin})`;
-      if(!confirm(confirmMsg)) return addMsg('Peruutettu.','bot');
+  // Render a wizard card into the chat (not saved to session)
+  function wizCard(html){
+    const d=document.createElement('div');
+    d.className='k-msg k-bot k-wizard';
+    d.innerHTML=html;
+    msgs.appendChild(d);
+    msgs.scrollTop=msgs.scrollHeight;
+    return d;
+  }
 
-      // Submit to varaus.php
-      const fd = new FormData();
-      fd.append('nimi', nimi);
-      fd.append('puhelin', puhelin);
-      fd.append('email', email);
-      fd.append('toivottu_pvm', date);
-      fd.append('toivottu_aika', slot);
-      fd.append('pyora_tyyppi', pyora);
-      fd.append('palvelu', palvelu);
-      fd.append('lisatiedot', lisatiedot);
+  // Booking flow — inline multi-step wizard
+  function startBookingFlow(){
+    const todayStr=new Date().toISOString().split('T')[0];
 
-      addMsg('Lähetetään varaus...','bot');
-      const submit = await fetch('varaus.php', {method:'POST', body:fd, redirect:'manual'});
-      if (submit.status===302 || submit.redirected) {
-        addMsg('Varaus vastaanotettu. Saat vahvistuksen sähköpostiisi. Kiitos!','bot');
-      } else {
-        // varaus.php redirects on success; if not, try to detect error
-        addMsg('Varaus lähetetty — tarkista sähköposti. Jos ongelma, soita 013 456 7890','bot');
+    // ── Step 1: date picker ──────────────────────────────
+    const s1=wizCard(`
+      <div class="k-wizard-title">📅 Valitse päivä</div>
+      <input type="date" id="kw-date" min="${todayStr}">
+      <button class="k-wiz-btn" id="kw-s1-ok">Hae vapaat ajat →</button>
+    `);
+
+    s1.querySelector('#kw-s1-ok').addEventListener('click', async ()=>{
+      const date=s1.querySelector('#kw-date').value;
+      if(!date) return;
+      s1.classList.add('k-wiz-done');
+
+      const loading=wizCard('<em>Haetaan vapaita aikoja…</em>');
+      try{
+        const r=await fetch('slots.php?date='+encodeURIComponent(date));
+        const data=await r.json();
+        loading.remove();
+        const dow=new Date(date+'T12:00:00').getDay();
+        const allSlots=dow===0?[]:(dow===6?['10:00','11:00','12:00','13:00']:['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00']);
+        const free=allSlots.filter(s=>!(data.booked||[]).includes(s));
+        if(!free.length){
+          addMsg('Ei vapaita aikoja sinä päivänä — valitse toinen päivä.','bot');
+          s1.classList.remove('k-wiz-done');
+          return;
+        }
+
+        // ── Step 2: time slot buttons ─────────────────────
+        const s2=wizCard(`
+          <div class="k-wizard-title">🕐 ${fmtDateFi(date)} — valitse aika</div>
+          <div class="k-slots">${free.map(s=>`<button class="k-slot" data-s="${s}">${s}</button>`).join('')}</div>
+        `);
+
+        s2.querySelectorAll('.k-slot').forEach(btn=>{
+          btn.addEventListener('click',()=>{
+            const slot=btn.dataset.s;
+            s2.classList.add('k-wiz-done');
+
+            // ── Step 3: contact form ───────────────────────
+            const s3=wizCard(`
+              <div class="k-wizard-title">✏️ ${fmtDateFi(date)} klo ${slot}</div>
+              <div class="kw-field"><label>Nimi *</label><input id="kw-nimi" type="text" placeholder="Etu- ja sukunimi"></div>
+              <div class="kw-field"><label>Puhelin *</label><input id="kw-puh" type="tel" placeholder="040 1234567"></div>
+              <div class="kw-field"><label>Sähköposti *</label><input id="kw-email" type="email" placeholder="nimi@esimerkki.fi"></div>
+              <div class="kw-field"><label>Palvelu</label>
+                <select id="kw-palvelu">
+                  <option value="perushuolto">Perushuolto (39 €)</option>
+                  <option value="tayshuolto">Täyshuolto (89 €)</option>
+                  <option value="sahko_huolto">Sähköpyörän huolto (alkaen 55 €)</option>
+                  <option value="rengaskorjaus">Rengaskorjaus (alkaen 15 €)</option>
+                  <option value="muu">Muu / kerron lisää</option>
+                </select>
+              </div>
+              <div class="kw-field"><label>Pyörätyyppi</label>
+                <select id="kw-pyora">
+                  <option value="tavallinen">Tavallinen polkupyörä</option>
+                  <option value="sahkopyora">Sähköpyörä</option>
+                  <option value="lapsi">Lasten pyörä</option>
+                  <option value="muu">Muu</option>
+                </select>
+              </div>
+              <div class="kw-field"><label>Lisätiedot</label><textarea id="kw-lisatiedot" placeholder="Valinnainen"></textarea></div>
+              <p id="kw-err" class="kw-err">Täytä nimi, puhelin ja sähköposti.</p>
+              <button class="k-wiz-btn" id="kw-submit">Vahvista varaus ✓</button>
+            `);
+
+            s3.querySelector('#kw-submit').addEventListener('click', async()=>{
+              const nimi=s3.querySelector('#kw-nimi').value.trim();
+              const puh=s3.querySelector('#kw-puh').value.trim();
+              const eml=s3.querySelector('#kw-email').value.trim();
+              const errEl=s3.querySelector('#kw-err');
+              if(!nimi||!puh||!eml){errEl.style.display='block';return;}
+              errEl.style.display='none';
+              s3.classList.add('k-wiz-done');
+
+              const loading2=wizCard('<em>Lähetetään varaus…</em>');
+              const fd=new FormData();
+              fd.append('nimi',nimi); fd.append('puhelin',puh); fd.append('email',eml);
+              fd.append('toivottu_pvm',date); fd.append('toivottu_aika',slot);
+              fd.append('pyora_tyyppi',s3.querySelector('#kw-pyora').value);
+              fd.append('palvelu',s3.querySelector('#kw-palvelu').value);
+              fd.append('lisatiedot',s3.querySelector('#kw-lisatiedot').value.trim());
+              try{
+                const res=await fetch('varaus.php',{method:'POST',body:fd});
+                loading2.remove();
+                if(res.url&&res.url.includes('status=ok')){
+                  addMsg(`✅ <strong>Varaus vahvistettu!</strong><br>${fmtDateFi(date)} klo ${slot}<br>Vahvistus lähetetty: ${eml}`,'bot');
+                }else{
+                  s3.classList.remove('k-wiz-done');
+                  addMsg('❌ Varaus ei onnistunut. Tarkista tiedot tai soita 013 456 7890','bot');
+                }
+              }catch(e){
+                loading2.remove();
+                s3.classList.remove('k-wiz-done');
+                addMsg('Yhteysvirhe. Yritä uudelleen tai soita 013 456 7890','bot');
+              }
+            });
+          });
+        });
+      }catch(e){
+        loading.remove();
+        addMsg('Virhe aikojen haussa. Yritä uudelleen tai soita 013 456 7890','bot');
+        s1.classList.remove('k-wiz-done');
       }
-
-    }catch(e){
-      addMsg('Virhe haettaessa vapaita aikoja. Yritä uudelleen tai soita 013 456 7890','bot');
-    }
+    });
   }
 
 })();
