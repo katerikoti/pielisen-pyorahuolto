@@ -107,6 +107,7 @@ textarea{resize:vertical;min-height:100px;line-height:1.55}
 .bk-info a:hover{text-decoration:underline}
 .bk-actions{padding:.6rem 1rem;display:flex;gap:.4rem;flex-wrap:wrap}
 .bk-btn{font-size:.78rem;font-weight:600;padding:.28rem .7rem;border-radius:6px;border:1px solid var(--border);background:var(--white);cursor:pointer;transition:all .15s}
+.bk-vahvista:hover{background:#d4edda;border-color:#c3e6cb;color:#155724}
 .bk-valmis:hover{background:#cce5ff;border-color:#b8daff;color:#004085}
 .bk-peru:hover{background:#fdecea;border-color:#f5c6c6;color:var(--red)}
 .bk-palauta:hover{background:#fff3cd;border-color:#ffeeba;color:#856404}
@@ -124,10 +125,12 @@ textarea{resize:vertical;min-height:100px;line-height:1.55}
     <div class="login-logo"><span>Pielisen</span> Pyörähuolto</div>
     <h2>Hallintapaneeli</h2>
     <p>Kirjaudu sisään julkaistaksesi uutisia</p>
+    <label for="un">Käyttäjätunnus</label>
+    <input type="text" id="un" placeholder="admin" onkeydown="if(event.key==='Enter')login()">
     <label for="pw">Salasana</label>
     <input type="password" id="pw" placeholder="••••••••" onkeydown="if(event.key==='Enter')login()">
     <button onclick="login()">Kirjaudu sisään</button>
-    <div class="login-err" id="login-err">Väärä salasana. Yritä uudelleen.</div>
+    <div class="login-err" id="login-err">Väärä tunnus tai salasana.</div>
   </div>
 </div>
 
@@ -190,6 +193,7 @@ textarea{resize:vertical;min-height:100px;line-height:1.55}
 
 <script>
 const PW_HASH='a1d182d125869e9e5df6cff0f27f9d194e61793c90183ae0b5b86a0bc87ea4fc';
+const USER_HASH='8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918';
 let posts=[];
 const months=['tammikuuta','helmikuuta','maaliskuuta','huhtikuuta','toukokuuta','kesäkuuta','heinäkuuta','elokuuta','syyskuuta','lokakuuta','marraskuuta','joulukuuta'];
 
@@ -285,10 +289,11 @@ async function sha256(str){
 }
 
 async function login(){
+  const u=document.getElementById('un').value;
   const v=document.getElementById('pw').value;
   const err=document.getElementById('login-err');
-  const hash=await sha256(v);
-  if(hash===PW_HASH){
+  const [uhash,phash]=await Promise.all([sha256(u),sha256(v)]);
+  if(uhash===USER_HASH&&phash===PW_HASH){
     document.getElementById('login-screen').style.display='none';
     document.getElementById('app').style.display='block';
     err.style.display='none';
@@ -304,6 +309,7 @@ async function login(){
 function logout(){
   document.getElementById('login-screen').style.display='flex';
   document.getElementById('app').style.display='none';
+  document.getElementById('un').value='';
   document.getElementById('pw').value='';
   // Reset to varaukset tab
   document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',i===0));
@@ -361,6 +367,8 @@ function renderBookings(list){
   area.innerHTML=list.map(b=>{
     const t=TILAT[b.tila]||{l:b.tila,c:''};
     const acts=[];
+    if(b.tila!=='vahvistettu'&&b.tila!=='valmis'&&b.tila!=='peruttu')
+      acts.push(`<button class="bk-btn bk-vahvista" onclick="updateBk(${b.id},'vahvistettu')">Vahvista</button>`);
     if(b.tila!=='valmis'&&b.tila!=='peruttu')
       acts.push(`<button class="bk-btn bk-valmis" onclick="updateBk(${b.id},'valmis')">Valmis</button>`);
     if(b.tila!=='peruttu')

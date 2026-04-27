@@ -2,8 +2,6 @@
 /**
  * uutiset-api.php – News API for Pielisen Pyörähuolto
  *
- * Storage: uutiset.json (no database required)
- *
  * GET  (no token)     → published posts only  (for index.html)
  * GET  ?token=HASH    → all posts             (for admin.html)
  * POST action=add     + token → add post
@@ -11,36 +9,42 @@
  * POST action=delete  + token + id → delete post
  */
 
+require_once __DIR__ . '/config.php';
+
 header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
 
 define('NEWS_TOKEN_HASH', 'a1d182d125869e9e5df6cff0f27f9d194e61793c90183ae0b5b86a0bc87ea4fc');
-define('NEWS_FILE', __DIR__ . '/uutiset.json');
 
 function isAdmin(): bool {
     $token = trim($_GET['token'] ?? $_POST['token'] ?? '');
     return $token !== '' && hash_equals(NEWS_TOKEN_HASH, strtolower($token));
 }
 
-function readPosts(): array {
-    if (!file_exists(NEWS_FILE)) return [];
-    $data = json_decode(file_get_contents(NEWS_FILE), true);
-    return is_array($data) ? $data : [];
-}
-
-function writePosts(array $posts): void {
-    file_put_contents(NEWS_FILE, json_encode(array_values($posts), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+try {
+    $pdo = new PDO(
+        'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4',
+        DB_USER, DB_PASS,
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
+    );
+} catch (PDOException $e) {
+    http_response_code(500);
+    echo json_encode(['error' => 'db_connect']);
+    exit;
 }
 
 /* ── GET ── */
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    $all = readPosts();
     if (isAdmin()) {
-        $posts = $all;
+        $stmt = $pdo->query('SELECT * FROM uutiset ORDER BY date DESC, luotu DESC');
     } else {
-        $posts = array_values(array_filter($all, fn($p) => !empty($p['published'])));
+        $stmt = $pdo->query('SELECT id, title, body, date FROM uutiset WHERE published=1 ORDER BY date DESC, luotu DESC');
     }
-    usort($posts, fn($a, $b) => strcmp($b['date'], $a['date']));
+    $posts = array_map(function ($row) {
+        if (isset($row['published'])) $row['published'] = (int)$row['published'];
+        return $row;
+    }, $stmt->fetchAll());
     echo json_encode(['posts' => $posts]);
     exit;
 }
@@ -63,36 +67,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             echo json_encode(['error' => 'invalid_input']);
             exit;
         }
-        $posts = readPosts();
-        $maxId = array_reduce($posts, fn($carry, $p) => max($carry, (int)($p['id'] ?? 0)), 0);
-        $posts[] = ['id' => $maxId + 1, 'title' => $title, 'body' => $body, 'date' => $date, 'published' => 1];
-        writePosts($posts);
-        echo json_encode(['ok' => true, 'id' => $maxId + 1]);
+        $stmt = $pdo->prepare('INSERT INTO uutiset (title, body, date, published) VALUES (?, ?, ?, 1)');
+        $stmt->execute([$title, $body, $date]);
+        echo json_encode(['ok' => true, 'id' => (int)$pdo->lastInsertId()]);
         exit;
     }
 
     if ($action === 'toggle') {
         $id = (int)($_POST['id'] ?? 0);
         if (!$id) { echo json_encode(['error' => 'invalid_id']); exit; }
-        $posts = readPosts();
-        $pub = 0;
-        foreach ($posts as &$p) {
-            if ((int)$p['id'] === $id) {
-                $p['published'] = $p['published'] ? 0 : 1;
-                $pub = $p['published'];
-                break;
-            }
-        }
-        writePosts($posts);
-        echo json_encode(['ok' => true, 'published' => $pub]);
+        $pdo->prepare('UPDATE uutiset SET published = 1 - published WHERE id = ?')->execute([$id]);
+        $pub = (int)$pdo->prepare('SELECT published FROM uutiset WHERE id = ?')->execute([$id]);
+        $row = $pdo->prepare('SELECT published FROM uutiset WHERE id = ?');
+        $row->execute([$id]);
+        echo json_encode(['ok' => true, 'published' => (int)$row->fetchColumn()]);
         exit;
     }
 
     if ($action === 'delete') {
         $id = (int)($_POST['id'] ?? 0);
         if (!$id) { echo json_encode(['error' => 'invalid_id']); exit; }
-        $posts = array_filter(readPosts(), fn($p) => (int)$p['id'] !== $id);
-        writePosts($posts);
+        $pdo->prepare('DELETE FROM uutiset WHERE id = ?')->execute([$id]);
         echo json_encode(['ok' => true]);
         exit;
     }

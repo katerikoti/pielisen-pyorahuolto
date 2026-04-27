@@ -124,33 +124,50 @@ if (!in_array($aika, $allowedSlots, true)) {
     redirect('error');
 }
 
-/* ─── Save to JSON file ─────────────────────────────────── */
-$jsonFile = __DIR__ . '/varaukset.json';
-$bookings = file_exists($jsonFile) ? (json_decode(file_get_contents($jsonFile), true) ?: []) : [];
+/* ─── DB: check for duplicate & insert ─────────────────── */
+try {
+    $pdo = new PDO(
+        'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4',
+        DB_USER,
+        DB_PASS,
+        [
+            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES   => false,
+        ]
+    );
 
-// Check if slot is already taken
-foreach ($bookings as $b) {
-    if ($b['toivottu_pvm'] === $pvm && $b['toivottu_aika'] === $aika && $b['tila'] !== 'peruttu') {
-        redirect('error'); // Slot taken
+    // Check if slot is already taken
+    $check = $pdo->prepare(
+        "SELECT id FROM varaukset WHERE toivottu_pvm = :pvm AND toivottu_aika = :aika AND tila != 'peruttu'"
+    );
+    $check->execute([':pvm' => $pvm, ':aika' => $aika]);
+    if ($check->fetch()) {
+        redirect('error'); // Slot taken — race condition guard
     }
-}
 
-$maxId = array_reduce($bookings, fn($carry, $b) => max($carry, (int)($b['id'] ?? 0)), 0);
-$bookings[] = [
-    'id'           => $maxId + 1,
-    'toivottu_pvm' => $pvm,
-    'toivottu_aika'=> $aika,
-    'tila'         => 'vahvistettu',
-    'nimi'         => $nimi,
-    'puhelin'      => $puhelin,
-    'email'        => $email,
-    'pyora_tyyppi' => $pyora_tyyppi,
-    'palvelu'      => $palvelu,
-    'lisatiedot'   => $lisatiedot,
-    'luotu'        => date('Y-m-d H:i:s'),
-];
+    // Insert booking
+    $cancelToken = bin2hex(random_bytes(32));
+    $stmt = $pdo->prepare(
+        "INSERT INTO varaukset
+            (toivottu_pvm, toivottu_aika, tila, nimi, puhelin, email, pyora_tyyppi, palvelu, lisatiedot, cancel_token)
+         VALUES
+            (:pvm, :aika, 'uusi', :nimi, :puhelin, :email, :pyora_tyyppi, :palvelu, :lisatiedot, :cancel_token)"
+    );
+    $stmt->execute([
+        ':pvm'          => $pvm,
+        ':aika'         => $aika,
+        ':nimi'         => $nimi,
+        ':puhelin'      => $puhelin,
+        ':email'        => $email,
+        ':pyora_tyyppi' => $pyora_tyyppi,
+        ':palvelu'      => $palvelu,
+        ':lisatiedot'   => $lisatiedot,
+        ':cancel_token' => $cancelToken,
+    ]);
 
-if (file_put_contents($jsonFile, json_encode($bookings, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)) === false) {
+} catch (PDOException $e) {
+    error_log('Pielisen Pyörähuolto varaus DB error: ' . $e->getMessage());
     redirect('error');
 }
 
@@ -179,6 +196,7 @@ $palveluNimi = $palveluLabels[$palvelu] ?? $palvelu;
 $pyoraNimi   = $pyoraLabels[$pyora_tyyppi] ?? $pyora_tyyppi;
 
 /* ─── Customer confirmation email ──────────────────────── */
+$cancelUrl = rtrim(SITE_URL, '/') . '/peruuta.php?token=' . $cancelToken;
 $customerHtml = <<<HTML
 <!DOCTYPE html><html lang="fi"><head><meta charset="UTF-8"></head><body
   style="font-family:Arial,Helvetica,sans-serif;background:#f5f5f5;margin:0;padding:0">
@@ -210,8 +228,10 @@ $customerHtml = <<<HTML
               <td style="color:#1a1a1a;font-size:14px;font-weight:700">Kauppakatu 14, 80100 Joensuu</td></tr>
         </table>
         <p style="color:#555;font-size:14px;line-height:1.6;margin:24px 0 0">
-          Tuo pyörä korjaamolle sovittuna päivänä. Jos haluat peruuttaa tai muuttaa aikaa,
-          soita meille: <strong>013 456 7890</strong>.
+          Tuo pyörä korjaamolle sovittuna päivänä. Muutoksista soita meille: <strong>013 456 7890</strong>.
+        </p>
+        <p style="margin:16px 0 0">
+          <a href="$cancelUrl" style="color:#c0392b;font-size:13px">Peruuta varaus</a>
         </p>
       </td></tr>
       <!-- Footer -->
