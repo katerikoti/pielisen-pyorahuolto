@@ -227,7 +227,12 @@ textarea{resize:vertical;min-height:100px;line-height:1.55}
   </header>
 
   <main>
-    <div class="stats-row">
+    <div class="stats-row" id="stats-varaukset">
+      <div class="stat-box"><div class="stat-num" id="bk-s-tuleva">0</div><div class="stat-lbl">Tulevia varauksia</div></div>
+      <div class="stat-box"><div class="stat-num" id="bk-s-tana">0</div><div class="stat-lbl">Tänään</div></div>
+      <div class="stat-box"><div class="stat-num" id="bk-s-valmis">0</div><div class="stat-lbl">Valmistuneet</div></div>
+    </div>
+    <div class="stats-row" id="stats-uutiset" style="display:none">
       <div class="stat-box"><div class="stat-num" id="s-total">0</div><div class="stat-lbl">Julkaisuja yhteensä</div></div>
       <div class="stat-box"><div class="stat-num" id="s-pub">0</div><div class="stat-lbl">Näkyvissä</div></div>
       <div class="stat-box"><div class="stat-num" id="s-hid">0</div><div class="stat-lbl">Piilotettu</div></div>
@@ -472,6 +477,8 @@ async function login(){
     document.getElementById('app').style.display='block';
     err.style.display='none';
     document.getElementById('f-date').valueAsDate=new Date();
+    document.getElementById('stats-varaukset').style.display='grid';
+    document.getElementById('stats-uutiset').style.display='none';
     await loadPosts();
     loadBookings();
   } else {
@@ -489,6 +496,8 @@ function logout(){
   document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',i===0));
   document.getElementById('tab-varaukset').style.display='block';
   document.getElementById('tab-uutiset').style.display='none';
+  document.getElementById('stats-varaukset').style.display='grid';
+  document.getElementById('stats-uutiset').style.display='none';
 }
 
 function switchTab(name, btn){
@@ -496,13 +505,15 @@ function switchTab(name, btn){
   btn.classList.add('active');
   document.getElementById('tab-uutiset').style.display  = name==='uutiset'  ? 'block' : 'none';
   document.getElementById('tab-varaukset').style.display = name==='varaukset' ? 'block' : 'none';
+  document.getElementById('stats-varaukset').style.display = name==='varaukset' ? 'grid' : 'none';
+  document.getElementById('stats-uutiset').style.display   = name==='uutiset'   ? 'grid' : 'none';
   if(name==='varaukset') loadBookings();
 }
 
 /* ── Bookings ── */
 const PALVELUT={perushuolto:'Perushuolto',tayshuolto:'Täyshuolto',sahko_huolto:'Sähköpyörän huolto',rengaskorjaus:'Rengaskorjaus',muu:'Muu'};
 const PYORAT  ={tavallinen:'Polkupyörä',sahkopyora:'Sähköpyörä',lapsi:'Lasten pyörä',muu:'Muu'};
-const TILAT   ={uusi:{l:'Uusi',c:'tl-uusi'},vahvistettu:{l:'Vahvistettu',c:'tl-vahv'},valmis:{l:'Valmis',c:'tl-valmis'},peruttu:{l:'Peruttu',c:'tl-per'}};
+const TILAT   ={uusi:{l:'Vahvistettu',c:'tl-vahv'},vahvistettu:{l:'Vahvistettu',c:'tl-vahv'},valmis:{l:'Valmis',c:'tl-valmis'},peruttu:{l:'Peruttu',c:'tl-per'}};
 const BK_KK   =['tammikuuta','helmikuuta','maaliskuuta','huhtikuuta','toukokuuta','kesäkuuta','heinäkuuta','elokuuta','syyskuuta','lokakuuta','marraskuuta','joulukuuta'];
 const BK_KK_S =['Tam','Hel','Maa','Huh','Tou','Kes','Hei','Elo','Syy','Lok','Mar','Jou'];
 const BK_DAYS =['Ma','Ti','Ke','To','Pe','La']; // Mon-Sat
@@ -536,11 +547,20 @@ function calInit(){
   calLoadBookings();
 }
 
+function updateBkStats(bookings){
+  const today=todayISO();
+  const active=bookings.filter(b=>b.tila!=='peruttu'&&(b.tyyppi||'asiakas')!=='esto');
+  document.getElementById('bk-s-tuleva').textContent=active.filter(b=>b.toivottu_pvm>=today).length;
+  document.getElementById('bk-s-tana').textContent=active.filter(b=>b.toivottu_pvm===today).length;
+  document.getElementById('bk-s-valmis').textContent=bookings.filter(b=>b.tila==='valmis').length;
+}
+
 function calLoadBookings(){
   fetch(`varaukset-api.php?token=${PW_HASH}&filter=kaikki`)
     .then(r=>r.json())
     .then(data=>{
       calState.bookings=data.bookings||[];
+      updateBkStats(calState.bookings);
       calRender();
     })
     .catch(()=>{
@@ -736,8 +756,6 @@ function renderDayPanel(){
     const isEsto=tyyppi==='esto';
     const acts=[];
     if(!isEsto){
-      if(b.tila==='uusi')
-        acts.push(`<button class="bk-btn bk-vahvista" onclick="updateBk(${b.id},'vahvistettu')">Vahvista</button>`);
       if(b.tila!=='valmis'&&b.tila!=='peruttu')
         acts.push(`<button class="bk-btn bk-valmis" onclick="updateBk(${b.id},'valmis')">Valmis</button>`);
     }

@@ -78,6 +78,7 @@ section{padding:4.5rem 0}
 .price-body li:last-child{border-bottom:none}
 .price-body li::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--yellow);flex-shrink:0}
 .pricing-note{margin-top:1.5rem;font-size:.85rem;color:var(--muted);background:var(--white);padding:1rem 1.25rem;border-radius:8px;border-left:3px solid var(--yellow)}
+.pricing-footnote{margin-top:1.25rem;font-size:.82rem;color:var(--muted)}
 .pricing-more{margin-top:.75rem;font-size:.9rem;color:var(--muted)}
 .pricing-more a{color:var(--blue);font-weight:600;text-decoration:underline}
 .how-time-note{font-size:.9rem;color:var(--muted);background:var(--gray);border-radius:8px;padding:.65rem 1rem;display:inline-block;margin-bottom:1.5rem}
