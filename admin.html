@@ -314,9 +314,9 @@ textarea{resize:vertical;min-height:100px;line-height:1.55}
       </div>
       <div class="mf-row">
         <div class="mf"><label>Nimi*</label><input type="text" id="am-nimi" placeholder="Matti Meikäläinen"></div>
-        <div class="mf"><label>Puhelin*</label><input type="text" id="am-puhelin" placeholder="040 123 4567"></div>
+        <div class="mf"><label>Puhelin</label><input type="text" id="am-puhelin" placeholder="040 123 4567"></div>
       </div>
-      <div class="mf"><label>Sähköposti</label><input type="email" id="am-email" placeholder="asiakas@email.fi"></div>
+      <div class="mf"><label>Sähköposti*</label><input type="email" id="am-email" placeholder="asiakas@email.fi"></div>
       <div class="mf-row">
         <div class="mf"><label>Pyörätyyppi*</label>
           <select id="am-pyora">
@@ -689,7 +689,7 @@ function renderWeek(){
       let content='';
       bks.forEach(b=>{
         const t=b.tyyppi||'asiakas';
-        const name=b.tyyppi==='esto'?'Estetty':(b.nimi||'');
+        const name=b.tyyppi==='esto'?(b.lisatiedot||'Estetty'):(b.nimi||'');
         content+=`<div class="wg-card wgc-${t}" title="${esc(name)}">${esc(name)}</div>`;
       });
       html+=`<div class="wg-cell" onclick="calSelectDay('${iso}')">${content}</div>`;
@@ -890,7 +890,7 @@ async function submitAddBooking(){
   const palvelu=document.getElementById('am-palvelu').value;
   const lisatiedot=document.getElementById('am-lisatiedot').value.trim();
   if(!pvm||!aika){showToast('Valitse päivämäärä ja aika.');return;}
-  if(!nimi||!puh){showToast('Täytä vähintään nimi ja puhelin.');return;}
+  if(!nimi||!email){showToast('Täytä vähintään nimi ja sähköposti.');return;}
   if(!pyora||!palvelu){showToast('Valitse pyörätyyppi ja palvelu.');return;}
   const btn=document.getElementById('am-save');
   btn.disabled=true;

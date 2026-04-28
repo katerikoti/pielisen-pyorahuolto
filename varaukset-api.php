@@ -134,10 +134,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $lisatiedot   = mb_substr(trim(strip_tags($_POST['lisatiedot']   ?? '')), 0, 1000);
 
         if ($tyyppi === 'admin') {
-            if (!$nimi || !$puhelin) {
+            if (!$nimi || !$email) {
                 http_response_code(400); echo json_encode(['error' => 'missing_fields']); exit;
             }
-            if ($email && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
                 http_response_code(400); echo json_encode(['error' => 'invalid_email']); exit;
             }
         }
