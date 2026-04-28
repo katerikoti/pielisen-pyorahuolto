@@ -88,7 +88,7 @@ $palvelu     = sanitize($_POST['palvelu']      ?? '', 50);
 $lisatiedot  = sanitize($_POST['lisatiedot']   ?? '', 1000);
 
 // Required field check
-if (!$nimi || !$puhelin || !$email || !$pvm || !$aika || !$pyora_tyyppi || !$palvelu) {
+if (!$nimi || !$email || !$pvm || !$aika || !$pyora_tyyppi || !$palvelu) {
     redirect('error');
 }
 

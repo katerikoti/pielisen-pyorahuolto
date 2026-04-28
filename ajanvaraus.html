@@ -266,8 +266,8 @@
               <input type="text" id="nimi" name="nimi" placeholder="Etunimi Sukunimi" maxlength="80" required autocomplete="name">
             </div>
             <div class="fgroup">
-              <label for="puhelin">Puhelin <span class="req">*</span></label>
-              <input type="tel" id="puhelin" name="puhelin" placeholder="040 123 4567" maxlength="30" required autocomplete="tel">
+              <label for="puhelin">Puhelin</label>
+              <input type="tel" id="puhelin" name="puhelin" placeholder="040 123 4567" maxlength="30" autocomplete="tel">
             </div>
           </div>
 
@@ -556,7 +556,7 @@ function updateProgress(activeStep) {
 ════════════════════════════════ */
 function submitForm() {
   let valid = true;
-  ['nimi','puhelin','email','pyora_tyyppi','palvelu'].forEach(id => {
+  ['nimi','email','pyora_tyyppi','palvelu'].forEach(id => {
     const el = document.getElementById(id);
     if (!el || !el.value.trim()) { if (el) el.classList.add('invalid'); valid = false; }
     else el.classList.remove('invalid');
