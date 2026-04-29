@@ -101,9 +101,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
-        $pvm     = trim($_POST['toivottu_pvm']  ?? '');
-        $aika    = trim($_POST['toivottu_aika'] ?? '');
-        $koko    = !empty($_POST['koko_paiva']);
+        $pvm        = trim($_POST['toivottu_pvm']  ?? '');
+        $aika       = trim($_POST['toivottu_aika'] ?? '');
+        $aika_loppu = trim($_POST['aika_loppuu']   ?? '');
+        $koko       = !empty($_POST['koko_paiva']);
 
         // Basic date validation
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $pvm)) {
@@ -118,6 +119,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($koko) {
             // Insert one row per slot for block-whole-day
             $slots_to_insert = $allSlots;
+        } elseif ($aika_loppu) {
+            // Range block: include all slots from $aika up to and including $aika_loppu
+            if (!preg_match('/^\d{2}:\d{2}$/', $aika) || !preg_match('/^\d{2}:\d{2}$/', $aika_loppu)) {
+                http_response_code(400); echo json_encode(['error' => 'invalid_time']); exit;
+            }
+            $slots_to_insert = array_filter($allSlots, fn($s) => $s >= $aika && $s <= $aika_loppu);
+            $slots_to_insert = array_values($slots_to_insert);
+            if (empty($slots_to_insert)) {
+                http_response_code(400); echo json_encode(['error' => 'invalid_range']); exit;
+            }
         } else {
             if (!preg_match('/^\d{2}:\d{2}$/', $aika)) {
                 http_response_code(400); echo json_encode(['error' => 'invalid_time']); exit;

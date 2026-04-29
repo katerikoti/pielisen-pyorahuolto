@@ -152,7 +152,7 @@
   </div>
 </nav>
 
-<div class="promo-banner">🔧 KAIKKI TOUKOKUUN HUOLLOT -30%! <a href="ajanvaraus.html">Varaa aika tästä!</a></div>
+<div class="promo-banner"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> KAIKKI TOUKOKUUN HUOLLOT -30%! <a href="ajanvaraus.html">Varaa aika tästä!</a></div>
 
 <div class="mobile-menu" id="mob-menu">
   <a href="index.html#palvelut" class="mob-link">Palvelut</a>
@@ -203,7 +203,7 @@
         <div class="cal-nav">
           <button class="cal-arrow" id="calPrev" onclick="changeMonth(-1)" aria-label="Edellinen kuukausi">&#8592;</button>
           <div class="cal-month" id="calMonth"></div>
-          <button class="cal-arrow" onclick="changeMonth(1)" aria-label="Seuraava kuukausi">&#8594;</button>
+          <button class="cal-arrow" id="calNext" onclick="changeMonth(1)" aria-label="Seuraava kuukausi">&#8594;</button>
         </div>
         <div class="cal-grid" id="calGrid"></div>
       </div>
@@ -399,10 +399,15 @@ function changeMonth(dir) {
 
 function renderCalendar() {
   const today = new Date(); today.setHours(0,0,0,0);
+  const maxDate = new Date(today); maxDate.setMonth(maxDate.getMonth()+3);
   document.getElementById('calMonth').textContent = FI_MONTHS[calViewMonth] + ' ' + calViewYear;
 
   const isCurrentMonth = calViewYear === today.getFullYear() && calViewMonth === today.getMonth();
   document.getElementById('calPrev').disabled = isCurrentMonth;
+
+  // Disable next arrow when viewing a month that starts at or beyond maxDate
+  const viewStart = new Date(calViewYear, calViewMonth, 1);
+  document.getElementById('calNext').disabled = viewStart >= maxDate;
 
   const grid = document.getElementById('calGrid');
   grid.innerHTML = '';
@@ -428,6 +433,7 @@ function renderCalendar() {
     const dow  = date.getDay(); // 0=Sun
     const isPast    = date < today;
     const isSunday  = dow === 0;
+    const isTooFar  = date >= maxDate;
     const isToday   = date.getTime() === today.getTime();
     const isSelected = state.selectedDate && state.selectedDate.getTime() === date.getTime();
 
@@ -438,8 +444,8 @@ function renderCalendar() {
     let cls = 'cal-day';
     if (isToday)    cls += ' today';
     if (isSelected) cls += ' selected';
-    if (isPast || isSunday) {
-      cls += isSunday ? ' weekend' : ' disabled';
+    if (isPast || isSunday || isTooFar) {
+      cls += (isSunday) ? ' weekend' : ' disabled';
       el.disabled = true;
     } else {
       el.addEventListener('click', () => selectDay(date));

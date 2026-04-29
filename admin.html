@@ -357,8 +357,12 @@ textarea{resize:vertical;min-height:100px;line-height:1.55}
     <div class="modal-body">
       <div class="mf"><label>Päivämäärä*</label><input type="date" id="bm-pvm" oninput="loadBlockSlots()"></div>
       <div class="mf" id="bm-aika-wrap">
-        <label>Kellonaika*</label>
-        <select id="bm-aika"><option value="">Valitse päivä ensin</option></select>
+        <label>Kellonaika alku*</label>
+        <select id="bm-aika-alku"><option value="">Valitse päivä ensin</option></select>
+      </div>
+      <div class="mf" id="bm-aika-loppu-wrap">
+        <label>Kellonaika loppu (valinnainen)</label>
+        <select id="bm-aika-loppu"><option value="">Samaan aikaan</option></select>
       </div>
       <div class="mf"><label class="mf-check"><input type="checkbox" id="bm-koko" onchange="toggleKokoPaiva()"> Estä koko päivä</label></div>
       <div class="mf"><label>Syy (valinnainen)</label><input type="text" id="bm-syy" placeholder="esim. Loma, Koulutus..."></div>
@@ -760,12 +764,9 @@ function renderDayPanel(){
         acts.push(`<button class="bk-btn bk-valmis" onclick="updateBk(${b.id},'valmis')">Valmis</button>`);
     }
     if(b.tila!=='peruttu')
-      acts.push(`<button class="bk-btn bk-peru" onclick="peruBk(${b.id},'${esc(b.tyyppi||'asiakas')}')">Peru</button>`);
-    if(b.tila==='peruttu'||b.tila==='valmis')
-      acts.push(`<button class="bk-btn bk-palauta" onclick="updateBk(${b.id},'uusi')">Palauta</button>`);
+      acts.push(`<button class="bk-btn bk-peru" onclick="peruBk(${b.id},'${esc(b.tyyppi||'asiakas')}')">Peruuta aika</button>`);
 
-    const notifyChk=(!isEsto&&b.tila!=='peruttu'&&b.email)?
-      `<label class="notify-wrap"><input type="checkbox" id="notify-${b.id}" checked> Ilmoita asiakkaalle</label>`:'';
+    const notifyChk='';
 
     const extra=b.lisatiedot?`<div style="color:var(--muted)">${esc(b.lisatiedot)}</div>`:'';
     const serviceRow=isEsto
@@ -804,8 +805,8 @@ function updateBk(id,tila){
 }
 
 function peruBk(id, tyyppi){
-  const notifyEl=document.getElementById(`notify-${id}`);
-  const notify=(tyyppi==='asiakas'&&notifyEl&&notifyEl.checked)?1:0;
+  if(!confirm('Haluatko varmasti peruuttaa tämän varauksen?'))return;
+  const notify=(tyyppi==='asiakas')?1:0;
   const fd=new FormData();
   fd.append('token',PW_HASH);fd.append('action','update');
   fd.append('id',id);fd.append('tila','peruttu');
@@ -839,10 +840,12 @@ function openAddModal(dateISO){
 function openBlockModal(dateISO){
   const m=document.getElementById('modal-block');
   document.getElementById('bm-pvm').value=dateISO||'';
-  document.getElementById('bm-aika').innerHTML='<option value="">Valitse aika...</option>';
+  document.getElementById('bm-aika-alku').innerHTML='<option value="">Valitse aika...</option>';
+  document.getElementById('bm-aika-loppu').innerHTML='<option value="">Samaan aikaan</option>';
   document.getElementById('bm-koko').checked=false;
   document.getElementById('bm-syy').value='';
   document.getElementById('bm-aika-wrap').style.display='block';
+  document.getElementById('bm-aika-loppu-wrap').style.display='block';
   if(dateISO)loadBlockSlots();
   m.style.display='flex';
 }
@@ -850,6 +853,7 @@ function openBlockModal(dateISO){
 function toggleKokoPaiva(){
   const koko=document.getElementById('bm-koko').checked;
   document.getElementById('bm-aika-wrap').style.display=koko?'none':'block';
+  document.getElementById('bm-aika-loppu-wrap').style.display=koko?'none':'block';
 }
 
 async function loadFreeSlots(){
@@ -870,14 +874,23 @@ async function loadFreeSlots(){
 
 async function loadBlockSlots(){
   const pvm=document.getElementById('bm-pvm').value;
-  const sel=document.getElementById('bm-aika');
-  if(!pvm){sel.innerHTML='<option value="">Valitse päivä ensin</option>';return;}
-  sel.innerHTML='<option value="">Ladataan...</option>';
+  const selAlku=document.getElementById('bm-aika-alku');
+  const selLoppu=document.getElementById('bm-aika-loppu');
+  if(!pvm){
+    selAlku.innerHTML='<option value="">Valitse päivä ensin</option>';
+    selLoppu.innerHTML='<option value="">Samaan aikaan</option>';
+    return;
+  }
+  selAlku.innerHTML='<option value="">Ladataan...</option>';
   try{
     const slots=getSlotsForISO(pvm);
-    sel.innerHTML='<option value="">Valitse aika...</option>'+
-      slots.map(s=>`<option value="${s}">${s}</option>`).join('');
-  }catch(e){sel.innerHTML='<option value="">Virhe</option>';}
+    const opts=slots.map(s=>`<option value="${s}">${s}</option>`).join('');
+    selAlku.innerHTML='<option value="">Valitse aika...</option>'+opts;
+    selLoppu.innerHTML='<option value="">Samaan aikaan</option>'+opts;
+  }catch(e){
+    selAlku.innerHTML='<option value="">Virhe</option>';
+    selLoppu.innerHTML='<option value="">Virhe</option>';
+  }
 }
 
 async function submitAddBooking(){
@@ -911,18 +924,19 @@ async function submitAddBooking(){
 }
 
 async function submitBlock(){
-  const pvm =document.getElementById('bm-pvm').value;
-  const aika=document.getElementById('bm-aika').value;
-  const koko=document.getElementById('bm-koko').checked;
-  const syy =document.getElementById('bm-syy').value.trim();
+  const pvm  =document.getElementById('bm-pvm').value;
+  const alku =document.getElementById('bm-aika-alku').value;
+  const loppu=document.getElementById('bm-aika-loppu').value;
+  const koko =document.getElementById('bm-koko').checked;
+  const syy  =document.getElementById('bm-syy').value.trim();
   if(!pvm){showToast('Valitse päivämäärä.');return;}
-  if(!koko&&!aika){showToast('Valitse kellonaika tai estä koko päivä.');return;}
+  if(!koko&&!alku){showToast('Valitse kellonaika tai estä koko päivä.');return;}
   const btn=document.getElementById('bm-save');
   btn.disabled=true;
   const fd=new FormData();
   fd.append('token',PW_HASH);fd.append('action','add');fd.append('tyyppi','esto');
   fd.append('toivottu_pvm',pvm);
-  if(!koko)fd.append('toivottu_aika',aika);
+  if(!koko){fd.append('toivottu_aika',alku);if(loppu)fd.append('aika_loppuu',loppu);}
   if(koko)fd.append('koko_paiva','1');
   fd.append('lisatiedot',syy);
   const r=await fetch('varaukset-api.php',{method:'POST',body:fd});
